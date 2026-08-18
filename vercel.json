@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/actions/brief-john",
+      "schedule": "0 10 * * *"
+    }
+  ]
+}

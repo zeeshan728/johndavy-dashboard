@@ -209,6 +209,19 @@ export default function Meetings({ data: propData }: MeetingsProps) {
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const dateOptions = [
+    { value: 'all', label: 'All dates' },
+    { value: 'today', label: 'Today' },
+    { value: 'thisWeek', label: 'Last 7 Days' },
+    { value: 'thisMonth', label: 'Last 30 Days' },
+  ] as const;
+  type DateFilter = (typeof dateOptions)[number]['value'];
+
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [dateOpen, setDateOpen] = useState(false);
+  const currentDate = dateOptions.find((o) => o.value === dateFilter);
 
   const hasPropData = propData != null;
   const data = propData ?? selfData;
@@ -241,7 +254,40 @@ export default function Meetings({ data: propData }: MeetingsProps) {
   }, [propData]);
 
   const sorted = useMemo(() => {
-    const list = [...(data?.meetings || [])];
+
+      const q = searchQuery.trim().toLowerCase();
+      const now = new Date();
+      const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      let list = [...(data?.meetings || [])];
+
+      if (q) {
+        list = list.filter((m) =>
+          m.title.toLowerCase().includes(q) ||
+          (m.people || []).join(' ').toLowerCase().includes(q) ||
+          (m.summary || '').toLowerCase().includes(q) ||
+          (m.keyPoints || '').toLowerCase().includes(q)
+        );
+      }
+
+      if (dateFilter === 'today') {
+        list = list.filter((m) => {
+          const d = new Date(m.date + 'T00:00:00');
+          return d.toDateString() === now.toDateString();
+        });
+      } else if (dateFilter === 'thisWeek') {
+        list = list.filter((m) => {
+          const d = new Date(m.date + 'T00:00:00');
+          return d >= weekAgo && d <= now;
+        });
+      } else if (dateFilter === 'thisMonth') {
+        list = list.filter((m) => {
+          const d = new Date(m.date + 'T00:00:00');
+          return d >= monthStart && d <= now;
+        });
+      }
+
     const val = (m: MeetingNote): string | number => {
       switch (sortKey) {
         case 'date':
@@ -272,7 +318,7 @@ export default function Meetings({ data: propData }: MeetingsProps) {
       return sortAsc ? cmp : -cmp;
     });
     return list;
-  }, [data, sortKey, sortAsc]);
+  }, [data, sortKey, sortAsc, searchQuery, dateFilter]);
 
   const stats = data?.stats || { thisWeek: 0, openActionItems: 0, decisions: 0 };
 
@@ -340,6 +386,49 @@ export default function Meetings({ data: propData }: MeetingsProps) {
             </h2>
           </div>
           <SourceBadge dataSource={data?.dataSource} />
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search meetings…"
+            className="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-bg-card border border-border-color hover:border-gold/30 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-gold/50 transition"
+          />
+
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setDateOpen((o) => !o)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-card border border-border-color hover:border-gold/30 rounded-lg text-xs font-semibold text-text-primary transition cursor-pointer"
+            >
+              {currentDate?.label ?? 'All dates'}
+              <ChevronDown className="w-3.5 h-3.5 text-text-muted" />
+            </button>
+
+            {dateOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setDateOpen(false)} />
+                <div className="absolute right-0 mt-1.5 w-48 glass-card rounded-xl shadow-lg z-20 overflow-hidden animate-fade-in-up">
+                  {dateOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        setDateFilter(opt.value);
+                        setDateOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2.5 text-xs font-medium transition ${
+                        opt.value === dateFilter
+                          ? 'bg-gold/10 text-gold'
+                          : 'text-text-secondary hover:bg-bg-card hover:text-text-primary cursor-pointer'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           {statCard(

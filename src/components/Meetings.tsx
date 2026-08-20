@@ -213,7 +213,7 @@ export default function Meetings({ data: propData }: MeetingsProps) {
 
   const dateOptions = [
     { value: 'all', label: 'All dates' },
-    { value: 'today', label: 'Today' },
+    { value: 'today', label: 'Yesterday' },
     { value: 'thisWeek', label: 'Last 7 Days' },
     { value: 'thisMonth', label: 'Last 30 Days' },
   ] as const;
@@ -274,7 +274,9 @@ export default function Meetings({ data: propData }: MeetingsProps) {
       if (dateFilter === 'today') {
         list = list.filter((m) => {
           const d = new Date(m.date + 'T00:00:00');
-          return d.toDateString() === now.toDateString();
+          const yest = new Date();
+          yest.setDate(yest.getDate() - 1);
+          return d.toDateString() === yest.toDateString();
         });
       } else if (dateFilter === 'thisWeek') {
         list = list.filter((m) => {

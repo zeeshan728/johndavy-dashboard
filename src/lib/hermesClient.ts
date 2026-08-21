@@ -4,51 +4,54 @@
 
 const FALLBACK_API_BASE = 'https://exposed-port-8766-75e25f2cf7732394f831-k7lg5zdmjg.h48.openclaw.agent37.com';
 
+// Hermes API client.
+//
+// This module is used by Next.js server-side routes and data services.
+// Authentication stays server-side. Never use NEXT_PUBLIC_HERMES_API_TOKEN.
+
 function getApiBase(): string {
   const base = process.env.HERMES_API_BASE;
+
   if (!base) {
-    if (typeof window !== 'undefined') {
-      console.warn('HERMES_API_BASE not set, using fallback URL');
-    }
-    return FALLBACK_API_BASE;
+    throw new Error('HERMES_API_BASE is not configured');
   }
+
   return base.replace(/\/$/, '');
 }
 
-// Hermes has been observed to hang past 20s on some endpoints (/api/connections,
-// /api/strategic, /api/flowly) with no response at all — a plain fetch() has no
-// default timeout, so without this every caller of fetchHermes would wait
-// indefinitely. 12s comfortably covers normal responses (team/pulse ~1.5s,
-// decisions ~6s observed) while still bounding the worst case.
-const DEFAULT_TIMEOUT_MS = 12000;
-
-export async function fetchHermes<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
+export async function fetchHermes<T>(
+  path: string,
+  init?: RequestInit
+): Promise<T> {
   const base = getApiBase();
   const token = process.env.HERMES_API_TOKEN;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${base}${path}`, {
-      cache: 'no-store',
-      ...init,
-      signal: controller.signal,
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...init?.headers,
-      },
-    });
-    if (!res.ok) {
-      throw new Error(`Hermes API ${path} failed: ${res.status} ${await res.text()}`);
-    }
-    return await res.json();
-  } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error(`Hermes API ${path} timed out after ${timeoutMs}ms`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
+
+  const headers = new Headers(init?.headers);
+  headers.set('Accept', 'application/json');
+
+  if (init?.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
   }
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${base}${path}`, {
+    ...init,
+    headers,
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+
+    throw new Error(
+      `Hermes API ${path} failed: ${response.status} ${errorText}`
+    );
+  }
+
+  return response.json() as Promise<T>;
 }
 
 export interface HermesOverview {
@@ -351,7 +354,11 @@ export interface HermesCRO {
 // complete — give it a longer, still-bounded allowance (with margin above the
 // observed 57s) instead of the generic default so it actually gets a chance to succeed.
 export function getFlowly(days?: number) {
-  return fetchHermes<HermesFlowly>(`/api/flowly${days ? `?days=${days}` : ''}`, undefined, 75000);
+  const path = `/api/flowly${days ? `?days=${days}` : ''}`;
+
+  return fetchHermes<HermesFlowly>(path, {
+    signal: AbortSignal.timeout(75000),
+  });
 }
 
 export interface HermesBriefJohnResult {

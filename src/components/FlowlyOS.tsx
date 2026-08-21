@@ -12,9 +12,18 @@ interface FlowlyOSProps {
   data: FlowlyOSData;
 }
 
-function formatMoney(value: number | null | undefined, currency: string): string {
+function formatMoney(
+  value: number | null | undefined,
+  currency = 'USD'
+): string {
   if (value == null) return '—';
-  return `${currencySymbol(currency)}${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 type CROSortKey = 'name' | 'revenue' | 'sales' | 'leads' | 'convRatePct' | 'spend' | 'roas';

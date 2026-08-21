@@ -207,6 +207,7 @@ export interface CROTotals {
   roas: number;
   cpl: number;
   cpa: number;
+  currency: string;
 }
 
 export interface CROFunnel {
@@ -264,6 +265,7 @@ export function mapCRO(
       roas: t.roas,
       cpl: t.cpl,
       cpa: t.cpa,
+      currency: t.currency || 'USD',
     },
     prevTotals: {
       revenue: pt?.revenue ?? 0,

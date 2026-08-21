@@ -106,17 +106,6 @@ export default function DashboardPage() {
   // failure. Without this, a browser with anything cached would show that exact
   // snapshot forever and never learn the backend has moved on.
   useEffect(() => {
-    const cached = localStorage.getItem('dashboardDataCache');
-    if (cached) {
-      try {
-        setData(JSON.parse(cached));
-        setLoading(false);
-        fetchDashboardData(false);
-        return;
-      } catch (e) {
-        console.error('Failed to parse cached dashboard data', e);
-      }
-    }
     fetchDashboardData(true);
   }, []);
 

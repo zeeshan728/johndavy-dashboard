@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef,useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, ArrowUpDown, TriangleAlert } from 'lucide-react';
 import { FlowlyOSData, CROFunnel, CROData, materialChangePct } from '@/lib/dataService';
@@ -61,36 +61,41 @@ export default function FlowlyOS({ data }: FlowlyOSProps) {
   const [cro, setCro] = useState<CROData | null | undefined>(data?.cro);
   const [isSyncing, setIsSyncing] = useState(false);
   const requestIdRef = useRef(0);
-  // The initial "month" range is already fetched server-side (data.cro) — skip the
-  // redundant network round trip and only fetch when range actually changes. Comparing
-  // against the previous range (rather than a mutate-once flag) survives React Strict
-  // Mode's dev-only double-invoke of mount effects.
-  const prevRangeRef = useRef(range);
+ // Always fetch the selected CRO range on mount and whenever the user changes it.
+ // The parent dashboard payload may contain an older snapshot, so it is never
+ // authoritative for the CRO card.
+
 
   useEffect(() => {
-    if (prevRangeRef.current === range) return;
-    prevRangeRef.current = range;
+  const days = RANGE_DAYS[range];
+  const requestId = ++requestIdRef.current;
 
-    const days = RANGE_DAYS[range];
-    const requestId = ++requestIdRef.current;
+  setIsSyncing(true);
 
-    setIsSyncing(true);
-    const clearIndicator = setTimeout(() => {
-      if (requestId === requestIdRef.current) setIsSyncing(false);
-    }, UPDATING_INDICATOR_MS);
+  fetch(`/api/cro?days=${days}`, {
+    cache: 'no-store',
+    headers: {
+      'Cache-Control': 'no-cache',
+    },
+  })
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error(`CRO request failed: ${res.status}`);
+      }
+      return res.json();
+    })
+    .then((payload) => {
+      if (requestId !== requestIdRef.current) return;
 
-    fetch(`/api/cro?days=${days}`)
-      .then((res) => res.json())
-      .then((payload) => {
-        if (requestId !== requestIdRef.current) return; // a newer range was selected, drop this result
-        setCro(payload.cro ?? null);
-      })
-      .catch(() => {
-        // keep showing the last known data; the indicator clears on its own timer
-      });
-
-    return () => clearTimeout(clearIndicator);
-  }, [range]);
+      setCro(payload.cro ?? null);
+      setIsSyncing(false);
+    })
+    .catch(() => {
+      if (requestId === requestIdRef.current) {
+        setIsSyncing(false);
+      }
+    });
+}, [range]);
 
   // If the server-side pull for the initial payload came back with no CRO data
   // (getFlowly can take ~40s cold and the main dashboard load doesn't wait that

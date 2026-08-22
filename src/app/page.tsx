@@ -87,7 +87,12 @@ export default function DashboardPage() {
   const fetchDashboardData = async (showLoadingState = false) => {
     if (showLoadingState) setLoading(true);
     try {
-      const res = await fetch('/api/data');
+      const res = await fetch(`/api/data?live=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       if (!res.ok) throw new Error('Network response was not ok');
       const payload: DashboardPayload = await res.json();
       applyPayload(payload);

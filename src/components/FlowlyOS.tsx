@@ -66,13 +66,13 @@ export default function FlowlyOS({ data }: FlowlyOSProps) {
  // authoritative for the CRO card.
 
 
-  useEffect(() => {
+useEffect(() => {
   const days = RANGE_DAYS[range];
   const requestId = ++requestIdRef.current;
 
   setIsSyncing(true);
 
-  fetch(`/api/cro?days=${days}`, {
+  fetch(`/api/cro?days=${days}&live=${Date.now()}`, {
     cache: 'no-store',
     headers: {
       'Cache-Control': 'no-cache',
@@ -82,6 +82,7 @@ export default function FlowlyOS({ data }: FlowlyOSProps) {
       if (!res.ok) {
         throw new Error(`CRO request failed: ${res.status}`);
       }
+
       return res.json();
     })
     .then((payload) => {
@@ -90,7 +91,9 @@ export default function FlowlyOS({ data }: FlowlyOSProps) {
       setCro(payload.cro ?? null);
       setIsSyncing(false);
     })
-    .catch(() => {
+    .catch((error) => {
+      console.error('Failed to fetch live CRO data:', error);
+
       if (requestId === requestIdRef.current) {
         setIsSyncing(false);
       }

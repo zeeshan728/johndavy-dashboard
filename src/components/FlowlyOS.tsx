@@ -58,8 +58,8 @@ function rangeKeyFor(croRange?: string): string {
 export default function FlowlyOS({ data }: FlowlyOSProps) {
   const [croSort, setCroSort] = useState<{ key: CROSortKey; dir: 'asc' | 'desc' }>({ key: 'revenue', dir: 'desc' });
   const [range, setRange] = useState(() => rangeKeyFor(data?.cro?.range));
-  const [cro, setCro] = useState<CROData | null | undefined>(data?.cro);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [cro, setCro] = useState<CROData | null>(null);
+  const [isSyncing, setIsSyncing] = useState(true);
   const requestIdRef = useRef(0);
  // Always fetch the selected CRO range on mount and whenever the user changes it.
  // The parent dashboard payload may contain an older snapshot, so it is never
@@ -203,7 +203,9 @@ useEffect(() => {
       </div>
 
       {!cro ? (
-        <div className="text-xs text-text-muted">No CRO data available.</div>
+        <div className="flex items-center justify-center min-h-[180px] text-sm text-text-muted">
+          {isSyncing ? 'Loading live Flowly data…' : 'No CRO data available.'}
+        </div>
       ) : (
         <>
           {adLoss != null && adLoss > 0 && (

@@ -12,6 +12,7 @@ import {
   ClipboardList,
   FolderKanban,
   Video,
+  Gavel,
   ChevronsLeft,
   ChevronsRight,
   LogOut,
@@ -30,7 +31,8 @@ export type SectionId =
   | 'flowly'
   | 'projects'
   | 'decisions'
-  | 'meetings';
+  | 'meetings'
+  | 'legal';
 
 export const SECTIONS: { id: SectionId; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -42,6 +44,7 @@ export const SECTIONS: { id: SectionId; label: string; icon: React.ElementType }
   { id: 'projects', label: 'Projects', icon: FolderKanban },
   { id: 'decisions', label: 'Decision Log', icon: ClipboardList },
   { id: 'meetings', label: 'Meetings', icon: Video },
+  { id: 'legal', label: 'Legal', icon: Gavel },
 ];
 
 interface SidebarProps {

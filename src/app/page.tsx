@@ -18,6 +18,7 @@ import ChiefOfStaffChat from '@/components/ChiefOfStaffChat';
 import CommandPalette from '@/components/CommandPalette';
 import DashboardSkeleton from '@/components/DashboardSkeleton';
 import { DashboardPayload } from '@/lib/dataService';
+import Legal from '@/components/Legal';
 
 export default function DashboardPage() {
   const pathname = usePathname();
@@ -196,6 +197,8 @@ export default function DashboardPage() {
         return <DecisionLog data={data.decisions} />;
       case 'meetings':
         return <Meetings />;
+      case 'legal':
+        return <Legal />;
       default:
         return null;
     }

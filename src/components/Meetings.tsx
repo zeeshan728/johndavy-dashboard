@@ -231,27 +231,41 @@ export default function Meetings({ data: propData }: MeetingsProps) {
   // Self-fetch from the Hermes backend when no data is passed via props
   // (mirrors the standalone mode used by RevenuePulse).
   useEffect(() => {
-    if (propData) return;
-    let cancelled = false;
-    getMeetings()
-      .then((raw) => {
-        if (!cancelled) {
-          setSelfData(mapMeetings(raw));
-          setError(null);
-        }
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          console.error('Error fetching meetings:', e);
-          setError('Could not load meetings. Please check the Hermes connection.');
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-    // propData is stable across renders for the standalone (self-fetch) mode,
-    // so this effect runs once when no data is supplied.
-  }, [propData]);
+  if (propData) return;
+
+  let cancelled = false;
+
+  fetch('/api/meetings', { cache: 'no-store' })
+    .then(async (response) => {
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+
+        throw new Error(
+          body?.detail ||
+            body?.error ||
+            `Meetings request failed: ${response.status}`
+        );
+      }
+
+      return response.json();
+    })
+    .then((raw) => {
+      if (!cancelled) {
+        setSelfData(mapMeetings(raw));
+        setError(null);
+      }
+    })
+    .catch((e) => {
+      if (!cancelled) {
+        console.error('Error fetching meetings:', e);
+        setError('Could not load meetings. Please check the Hermes connection.');
+      }
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}, [propData]);
 
   const sorted = useMemo(() => {
 

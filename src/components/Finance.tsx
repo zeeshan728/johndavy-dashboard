@@ -257,20 +257,44 @@ export default function Finance() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadFinance(showSpinner = false) {
-    if (showSpinner) setRefreshing(true);
+  const loadFinance = async (showLoading = false) => {
+    if (showLoading) {
+      setLoading(true);
+    }
+
+    setError(null);
 
     try {
-      const result = await getFinanceOverview();
-      setData(result);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Finance data failed');
+      const response = await fetch('/api/finance/overview', {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          body.detail ||
+            body.error ||
+            `Finance service returned ${response.status}`
+        );
+      }
+
+      setData(body);
+    } catch (error) {
+      console.error('Error fetching finance data:', error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to load finance data.'
+      );
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
-  }
+  };
 
   useEffect(() => {
     loadFinance(true);

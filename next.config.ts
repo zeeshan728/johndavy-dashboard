@@ -43,6 +43,10 @@ const nextConfig: NextConfig = {
         source: "/legal",
         destination: "/",
       },
+      {
+        source: "/finance",
+        destination: "/",
+      },
     ];
   },
 };

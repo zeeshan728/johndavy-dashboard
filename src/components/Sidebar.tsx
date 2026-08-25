@@ -18,6 +18,7 @@ import {
   LogOut,
   X,
   MessageCircle,
+  Landmark,
 } from 'lucide-react';
 import { ConnectionStatus, DataSource } from '@/lib/dataService';
 import { humanizeSource } from '@/lib/text';
@@ -32,13 +33,15 @@ export type SectionId =
   | 'projects'
   | 'decisions'
   | 'meetings'
-  | 'legal';
+  | 'legal'
+  | 'finance';
 
 export const SECTIONS: { id: SectionId; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'brief', label: 'Morning Brief', icon: Sparkles },
   { id: 'priorities', label: 'Strategic Priorities', icon: Target },
   { id: 'revenue', label: 'Revenue Pulse', icon: DollarSign },
+  { id: 'finance', label: 'Finance', icon: Landmark },
   { id: 'team', label: 'Team Pulse', icon: Users },
   { id: 'flowly', label: 'Flowly OS', icon: Rocket },
   { id: 'projects', label: 'Projects', icon: FolderKanban },

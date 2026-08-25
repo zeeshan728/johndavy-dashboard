@@ -19,6 +19,7 @@ import CommandPalette from '@/components/CommandPalette';
 import DashboardSkeleton from '@/components/DashboardSkeleton';
 import { DashboardPayload } from '@/lib/dataService';
 import Legal from '@/components/Legal';
+import Finance from '@/components/Finance';
 
 export default function DashboardPage() {
   const pathname = usePathname();
@@ -187,6 +188,8 @@ export default function DashboardPage() {
         return <StrategicPriorities priorities={data.strategic.priorities} dataSource={data.strategic.dataSource} />;
       case 'revenue':
         return <RevenuePulse />;
+      case 'finance':
+        return <Finance />;
       case 'team':
         return <TeamPulse data={data.teamPulse} />;
       case 'flowly':

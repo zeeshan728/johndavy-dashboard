@@ -2,7 +2,7 @@
 // Read-only endpoints backed by real Gmail/Asana/Calendar/cron data.
 // Sends a bearer token if HERMES_API_TOKEN is set (the port has no auth until that's configured).
 
-const FALLBACK_API_BASE = 'https://exposed-port-8766-75e25f2cf7732394f831-k7lg5zdmjg.h48.openclaw.agent37.com';
+const FALLBACK_API_BASE = 'https://exposed-port-8766-740d855c66ee47a9fe74-k7lg5zdmjg.h48.openclaw.agent37.com';
 
 // Hermes API client.
 //
@@ -10,10 +10,22 @@ const FALLBACK_API_BASE = 'https://exposed-port-8766-75e25f2cf7732394f831-k7lg5z
 // Authentication stays server-side. Never use NEXT_PUBLIC_HERMES_API_TOKEN.
 
 function getApiBase(): string {
-  const base = process.env.HERMES_API_BASE;
+    // NEXT_PUBLIC_* is inlined into the browser bundle; non-prefixed env vars are
+    // only available server-side. Server routes must prefer the private value so a
+    // stale public deployment variable cannot override the current server config.
+  const base =
+    typeof window === 'undefined'
+      ? process.env.HERMES_API_BASE ||
+        process.env.NEXT_PUBLIC_HERMES_API_BASE ||
+        FALLBACK_API_BASE
+      : process.env.NEXT_PUBLIC_HERMES_API_BASE || FALLBACK_API_BASE;
 
   if (!base) {
-    throw new Error('HERMES_API_BASE is not configured');
+    if (typeof window !== 'undefined') {
+      console.warn('HERMES_API_BASE not set, using fallback URL');
+    }
+
+    return FALLBACK_API_BASE;
   }
 
   return base.replace(/\/$/, '');
@@ -430,3 +442,102 @@ export function askHermes(question: string, conversationHistory?: { role: 'user'
   });
 }
 
+export interface FinanceSource {
+  source: string;
+  status: string;
+  note?: string;
+  type?: string;
+  id?: string;
+  path?: string;
+}
+
+export interface FinanceInvoice {
+  id: string;
+  invoice_number: string | null;
+  amount: number | null;
+  currency: string | null;
+  invoice_date: string | null;
+  due_date: string | null;
+  vendor: string | null;
+  customer: string | null;
+  po_reference: string | null;
+  tax_vat: boolean;
+  status: string;
+  approval_status: string;
+  paid: boolean | null;
+  overdue: boolean | null;
+  duplicate?: string;
+  confidence: string;
+  recommendation: string;
+  source: FinanceSource;
+  evidence: string;
+}
+
+export interface FinanceMetric {
+  value: number | null;
+  status: string;
+  confidence: string;
+  recommendation?: string;
+  source?: FinanceSource;
+}
+
+export interface FinanceCalendarItem {
+  title?: string;
+  date: string;
+  status: string;
+  confidence: string;
+  recommendation?: string;
+  source?: FinanceSource;
+}
+
+export interface FinanceOverview {
+  urgent_actions: FinanceInvoice[];
+  approvals: FinanceInvoice[];
+  payables: unknown[];
+  receivables: unknown[];
+  cash_liquidity: FinanceMetric;
+  expenses: unknown[];
+  recurring_expenses: unknown[];
+  risks: unknown[];
+  recommended_actions: {
+    action: string;
+    status: string;
+    confidence: string;
+    source?: FinanceSource;
+  }[];
+  calendar: {
+    today: FinanceCalendarItem[];
+    next_7_days: FinanceCalendarItem[];
+    next_30_days: FinanceCalendarItem[];
+  };
+  recent_invoices: FinanceInvoice[];
+  sources: FinanceSource[];
+  data_availability: FinanceSource[];
+  updated: string;
+  source?: string;
+  fetched_at?: string;
+  from_cache?: boolean;
+}
+
+export interface FinanceAskResponse {
+  question: string;
+  answer: string;
+  evidence: FinanceInvoice[];
+  sources: FinanceSource[];
+  requires_approval: boolean;
+  updated: string;
+}
+
+export function getFinanceOverview() {
+  return fetchHermes<FinanceOverview>('/api/finance/overview');
+}
+
+export function askFinance(question: string) {
+  return fetchHermes<FinanceAskResponse>('/api/finance/ask', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ question }),
+  });
+}

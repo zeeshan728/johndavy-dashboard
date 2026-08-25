@@ -9,6 +9,7 @@ import {
   Users,
   Rocket,
   ArrowUpRight,
+  ArrowRight,
   Calendar,
   Clock,
   Mail,
@@ -26,6 +27,7 @@ import { timeGreeting, formatTime, formatDate, dubaiDayKey, relativeTimeFrom, cu
 import { useCountUp } from '@/lib/hooks';
 import MeetingsList from './MeetingsList';
 import ChartTooltip from './ChartTooltip';
+import { button } from 'framer-motion/m';
 
 interface OverviewStatsProps {
   data: DashboardPayload;
@@ -73,6 +75,306 @@ function formatCompact(n: number): string {
 }
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 15.5;
+
+function trendStrFor(trend: number): string {
+  if (trend > 0) return `↑ ${trend}%`;
+  if (trend < 0) return `↓ ${Math.abs(trend)}%`;
+  return '—';
+}
+
+interface YourNextMovesProps {
+  data: DashboardPayload;
+  onNavigate: (id: SectionId) => void;
+}
+
+function YourNextMoves({
+  data,
+  onNavigate,
+}: YourNextMovesProps) {
+  const [showUpcomingMeetings, setShowUpcomingMeetings] = useState(false);
+  const nowMinutes =
+    new Date().getHours() * 60 + new Date().getMinutes();
+
+  const parseTime = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+
+    return Number.isFinite(hours)
+      ? hours * 60 + (minutes || 0)
+      : -1;
+  };
+
+  const upcomingEvents = [...(data.calendar?.events || [])]
+    .filter(
+      (event) =>
+        event.title?.trim() &&
+        parseTime(event.time) >= nowMinutes
+    )
+    .sort(
+      (a, b) => parseTime(a.time) - parseTime(b.time)
+    );
+
+  const nextEvent = upcomingEvents[0];
+
+  const overdueTask = data.tasks?.overdue?.[0];
+  const overdueCount = data.tasks?.overdue?.length ?? 0;
+  const dueTodayCount = data.tasks?.dueToday?.length ?? 0;
+
+  const blockers = data.flowly?.blockers || [];
+  const leadCount = data.flowly?.leadsCaptured ?? 0;
+
+  const behindPriority = (
+    data.strategic?.priorities || []
+  ).find(
+    (priority) =>
+      priority.status === 'behind' ||
+      priority.status === 'critical' ||
+      priority.status === 'warning'
+  );
+
+  const focus = overdueTask
+    ? {
+        text: `Clear “${overdueTask.name}”`,
+        section: 'priorities' as SectionId,
+      }
+    : blockers[0]
+    ? {
+        text: blockers[0],
+        section: 'flowly' as SectionId,
+      }
+    : data.briefing?.highlights?.opportunities?.[0]
+    ? {
+        text: data.briefing.highlights.opportunities[0],
+        section: 'brief' as SectionId,
+      }
+    : behindPriority
+    ? {
+        text: `${behindPriority.name} is ${behindPriority.statusText.toLowerCase()}`,
+        section: 'priorities' as SectionId,
+      }
+    : null;
+
+  const moves = [
+    {
+      label: 'Next up',
+      value: nextEvent
+        ? `${nextEvent.time} · ${nextEvent.title}`
+        : 'No more meetings today',
+      detail: nextEvent?.attendees?.length
+        ? `${nextEvent.attendees.length} attendees`
+        : 'Calendar clear',
+      section: 'meetings' as SectionId,
+      action: () => setShowUpcomingMeetings((visible) => !visible),
+      icon: Calendar,
+      tone: 'text-blue bg-blue/10',
+    },
+    {
+      label: 'Needs attention',
+      value:
+        overdueCount > 0
+          ? `${overdueCount} overdue task${
+              overdueCount === 1 ? '' : 's'
+            }`
+          : 'Nothing overdue',
+      detail:
+        dueTodayCount > 0
+          ? `${dueTodayCount} due today`
+          : 'Backlog under control',
+      section: 'priorities' as SectionId,
+      icon:
+        overdueCount > 0
+          ? TriangleAlert
+          : CircleCheckBig,
+      tone:
+        overdueCount > 0
+          ? 'text-amber bg-amber/10'
+          : 'text-green bg-green/10',
+    },
+    {
+      label: 'Revenue pulse',
+      value: `AED ${formatCompact(
+        data.revenue?.daily ?? 0
+      )} today`,
+      detail: `${trendStrFor(
+        data.revenue?.dailyTrend ?? 0
+      )} vs yesterday`,
+      section: 'revenue' as SectionId,
+      icon: DollarSign,
+      tone: 'text-gold bg-gold/10',
+    },
+    {
+      label: 'Pipeline',
+      value:
+        leadCount > 0
+          ? `${leadCount} new lead${
+              leadCount === 1 ? '' : 's'
+            }`
+          : 'No new leads captured',
+      detail:
+        blockers.length > 0
+          ? `${blockers.length} blocker${
+              blockers.length === 1 ? '' : 's'
+            }`
+          : 'No active blockers',
+      section: 'flowly' as SectionId,
+      icon: Rocket,
+      tone:
+        blockers.length > 0
+          ? 'text-amber bg-amber/10'
+          : 'text-green bg-green/10',
+    },
+  ];
+
+  return (
+    <section
+      className="space-y-3"
+      aria-label="Your next moves"
+    >
+      <div className="flex items-center justify-between px-1">
+        <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">
+          Your next moves
+        </h2>
+
+        {focus && (
+          <span className="text-[10px] font-medium text-amber">
+            Focus recommended
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {moves.map(
+          ({
+            label,
+            value,
+            detail,
+            section,
+            action,
+            icon: Icon,
+            tone,
+          }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() =>
+                action ? action() : onNavigate(section)
+              }
+              className="group min-w-0 rounded-xl border border-border-color bg-bg-secondary p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/30"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${tone}`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
+
+                <ArrowRight className="h-3.5 w-3.5 text-text-muted transition-all group-hover:translate-x-0.5 group-hover:text-gold" />
+              </div>
+
+              <div className="mt-2 text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                {label}
+              </div>
+
+              <div
+                className="mt-1 truncate text-xs font-semibold text-text-primary"
+                title={value}
+              >
+                {value}
+              </div>
+
+              <div
+                className="mt-1 truncate text-[10px] text-text-secondary"
+                title={detail}
+              >
+                {detail}
+              </div>
+            </button>
+          )
+        )}
+      </div>
+
+            {showUpcomingMeetings && (
+        <div className="rounded-xl border border-blue/20 bg-blue/5 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-3.5 w-3.5 text-blue" />
+              <h3 className="text-[10px] font-bold uppercase tracking-wider text-blue">
+                Upcoming meetings
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowUpcomingMeetings(false)}
+              className="text-[10px] text-text-muted hover:text-text-primary"
+            >
+              Close
+            </button>
+          </div>
+
+          {upcomingEvents.length === 0 ? (
+            <p className="py-2 text-xs text-text-secondary">
+              No upcoming meetings scheduled today.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {upcomingEvents.slice(0, 5).map((event, index) => (
+                <div
+                  key={`${event.time}-${event.title}-${index}`}
+                  className="flex items-center gap-3 rounded-lg border border-border-color/60 bg-bg-secondary px-3 py-2"
+                >
+                  <span className="w-12 shrink-0 text-xs font-bold text-text-primary">
+                    {event.time}
+                  </span>
+
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-text-primary">
+                    {event.title}
+                  </span>
+
+                  <span className="shrink-0 text-[10px] text-text-muted">
+                    {event.duration}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onNavigate('meetings')}
+            className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-blue hover:text-text-primary"
+          >
+            View meeting transcripts
+            <ArrowRight className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
+      {focus && (
+        <button
+          type="button"
+          onClick={() => onNavigate(focus.section)}
+          className="flex w-full items-center gap-3 rounded-xl border border-amber/20 bg-amber/5 px-3 py-2.5 text-left transition-colors hover:border-amber/40"
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber/10">
+            <TriangleAlert className="h-3.5 w-3.5 text-amber" />
+          </span>
+
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-amber">
+              CEO focus
+            </span>
+
+            <span className="mt-0.5 block truncate text-xs font-medium text-text-primary">
+              {focus.text}
+            </span>
+          </span>
+
+          <ArrowRight className="h-4 w-4 shrink-0 text-amber" />
+        </button>
+      )}
+    </section>
+  );
+}
 
 // Assigns each top-level block a stagger index for the mount-in animation defined in
 // globals.css (.animate-fade-in-up reads --stagger as a CSS custom property).
@@ -413,6 +715,13 @@ export default function OverviewStats({ data, onNavigate, onRefresh, isRefreshin
             </span>
             Synced {formatTime(data.overview.lastUpdated)}
           </span>
+
+                    <div className="mt-4">
+            <YourNextMoves
+              data={data}
+              onNavigate={onNavigate}
+            />
+          </div>
         </div>
 
         <button

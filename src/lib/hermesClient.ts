@@ -2,7 +2,7 @@
 // Read-only endpoints backed by real Gmail/Asana/Calendar/cron data.
 // Sends a bearer token if HERMES_API_TOKEN is set (the port has no auth until that's configured).
 
-const FALLBACK_API_BASE = 'https://exposed-port-8766-740d855c66ee47a9fe74-k7lg5zdmjg.h48.openclaw.agent37.com';
+const FALLBACK_API_BASE = 'https://4d3583af5a829456c4f9.agent37.app';
 
 // Hermes API client.
 //

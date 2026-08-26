@@ -20,6 +20,8 @@ import DashboardSkeleton from '@/components/DashboardSkeleton';
 import { DashboardPayload } from '@/lib/dataService';
 import Legal from '@/components/Legal';
 import Finance from '@/components/Finance';
+import Logistics from '@/components/Logistics';
+
 
 export default function DashboardPage() {
   const pathname = usePathname();
@@ -200,6 +202,8 @@ export default function DashboardPage() {
         return <DecisionLog data={data.decisions} />;
       case 'meetings':
         return <Meetings />;
+      case 'logistics':
+        return <Logistics />;
       case 'legal':
         return <Legal />;
       default:

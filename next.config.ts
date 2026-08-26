@@ -40,6 +40,10 @@ const nextConfig: NextConfig = {
         destination: "/",
       },
       {
+        source: "/logistics",
+        destination: "/",
+      },
+      {
         source: "/legal",
         destination: "/",
       },

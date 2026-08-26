@@ -12,6 +12,7 @@ import {
   ClipboardList,
   FolderKanban,
   Video,
+  Luggage,
   Gavel,
   ChevronsLeft,
   ChevronsRight,
@@ -33,6 +34,7 @@ export type SectionId =
   | 'projects'
   | 'decisions'
   | 'meetings'
+  | 'logistics'
   | 'legal'
   | 'finance';
 
@@ -47,6 +49,7 @@ export const SECTIONS: { id: SectionId; label: string; icon: React.ElementType }
   { id: 'projects', label: 'Projects', icon: FolderKanban },
   { id: 'decisions', label: 'Decision Log', icon: ClipboardList },
   { id: 'meetings', label: 'Meetings', icon: Video },
+  { id: 'logistics', label: 'Logistics', icon: Luggage },
   { id: 'legal', label: 'Legal', icon: Gavel },
 ];
 

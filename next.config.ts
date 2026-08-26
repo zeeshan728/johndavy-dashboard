@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
         destination: "/",
       },
       {
+        source: "/approval-outbox",
+        destination: "/",
+      },
+      {
         source: "/revenue",
         destination: "/",
       },

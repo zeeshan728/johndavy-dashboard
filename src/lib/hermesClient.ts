@@ -541,3 +541,111 @@ export function askFinance(question: string) {
     body: JSON.stringify({ question }),
   });
 }
+
+export interface HermesApprovalItem {
+  id: string;
+  kind: string;
+  category: string;
+  title: string;
+  prompt: string;
+  source: {
+    meeting_id?: string;
+    meeting_title?: string;
+    meeting_date?: string;
+    people?: string[];
+  };
+  status: string;
+  created_at: string;
+  updated_at: string;
+  note?: string;
+  delegate_to?: string;
+  execution_status?: string;
+  execution_error?: string;
+  execution_note?: string;
+  delegation_note?: string;
+  execution?: {
+    system?: string;
+    task_gid?: string;
+    task_name?: string;
+    url?: string;
+  };
+
+}
+
+export function getApprovals() {
+  return fetch('/api/approvals', {
+    cache: 'no-store',
+  }).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(
+        `Approvals request failed: ${response.status} ${await response.text()}`
+      );
+    }
+
+    return response.json() as Promise<{
+      items: HermesApprovalItem[];
+      total: number;
+      source: string;
+    }>;
+  });
+}
+
+export function updateApproval(
+  id: string,
+  payload: {
+    decision: string;
+    edited_text?: string;
+    note?: string;
+    delegate_to?: string;
+  }
+) {
+  return fetch(
+    `/api/approvals/${encodeURIComponent(id)}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  ).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(
+        `Approval update failed: ${response.status} ${await response.text()}`
+      );
+    }
+
+    return response.json() as Promise<HermesApprovalItem>;
+  });
+}
+
+export function executeApproval(
+  id: string,
+  payload: {
+    action: 'asana_task' | 'email' | 'delegate';
+    recipient_email?: string;
+    subject?: string;
+    body?: string;
+    delegate_to?: string;
+    delegation_note?: string;
+  }
+) {
+  return fetch(
+    `/api/approvals/${encodeURIComponent(id)}/execute`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  ).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(
+        `Approval execution failed: ${response.status} ${await response.text()}`
+      );
+    }
+
+    return response.json();
+  });
+}

@@ -7,6 +7,7 @@ import { StrategicPriority, DataSource } from '@/lib/dataService';
 import SourceBadge from './SourceBadge';
 import { formatDate } from '@/lib/text';
 
+
 interface StrategicPrioritiesProps {
   priorities: StrategicPriority[];
   dataSource?: DataSource;

@@ -13,6 +13,7 @@ import {
   FolderKanban,
   Video,
   Luggage,
+  Inbox,
   Gavel,
   ChevronsLeft,
   ChevronsRight,
@@ -28,6 +29,7 @@ export type SectionId =
   | 'overview'
   | 'brief'
   | 'priorities'
+  | 'approval-outbox'
   | 'revenue'
   | 'team'
   | 'flowly'
@@ -42,6 +44,7 @@ export const SECTIONS: { id: SectionId; label: string; icon: React.ElementType }
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'brief', label: 'Morning Brief', icon: Sparkles },
   { id: 'priorities', label: 'Strategic Priorities', icon: Target },
+  { id: 'approval-outbox', label: 'Proposed Actions', icon: Inbox },
   { id: 'revenue', label: 'Revenue Pulse', icon: DollarSign },
   { id: 'finance', label: 'Finance', icon: Landmark },
   { id: 'team', label: 'Team Pulse', icon: Users },

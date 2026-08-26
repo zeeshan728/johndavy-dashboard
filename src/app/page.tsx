@@ -21,6 +21,8 @@ import { DashboardPayload } from '@/lib/dataService';
 import Legal from '@/components/Legal';
 import Finance from '@/components/Finance';
 import Logistics from '@/components/Logistics';
+import ApprovalOutbox from '@/components/ApprovalOutbox';
+
 
 
 export default function DashboardPage() {
@@ -188,6 +190,8 @@ export default function DashboardPage() {
         return <MorningBrief data={data} onRefresh={handleRefresh} isRefreshing={isRefreshing} />;
       case 'priorities':
         return <StrategicPriorities priorities={data.strategic.priorities} dataSource={data.strategic.dataSource} />;
+      case 'approval-outbox':
+        return <ApprovalOutbox />;
       case 'revenue':
         return <RevenuePulse />;
       case 'finance':

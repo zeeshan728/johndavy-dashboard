@@ -1,0 +1,87 @@
+.connection-graph-line {
+  stroke-dasharray: 8 14;
+  animation: connection-flow 2.8s linear infinite;
+  opacity: 0.7;
+}
+
+@keyframes connection-flow {
+  to {
+    stroke-dashoffset: -44;
+  }
+}
+
+.connection-graph-node {
+  animation: connection-node-breathe 3s ease-in-out infinite;
+}
+
+.connection-graph-node:nth-child(3n) {
+  animation-delay: -1s;
+}
+
+.connection-graph-node:nth-child(3n + 1) {
+  animation-delay: -2s;
+}
+
+.connection-center-pulse {
+  animation: connection-center-pulse 3s ease-in-out infinite;
+}
+
+@keyframes connection-node-breathe {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+
+  50% {
+    filter: drop-shadow(
+      0 0 7px rgb(189 35 40 / 0.18)
+    );
+  }
+}
+
+@keyframes connection-center-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgb(189 35 40 / 0.14),
+      0 8px 24px rgb(31 35 40 / 0.08);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 13px rgb(189 35 40 / 0),
+      0 8px 30px rgb(31 35 40 / 0.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connection-graph-line,
+  .connection-graph-node,
+  .connection-center-pulse {
+    animation: none;
+  }
+}
+
+.connection-status-pulse {
+  animation: connection-status-pulse 2s ease-out infinite;
+}
+
+@keyframes connection-status-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(16 185 129 / 0.45);
+  }
+
+  70% {
+    box-shadow: 0 0 0 8px rgb(16 185 129 / 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgb(16 185 129 / 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connection-status-pulse {
+    animation: none;
+  }
+}

@@ -41,7 +41,7 @@ export interface ConnectionStatus {
   calendar: 'connected' | 'disconnected' | 'blocked' | 'low_credits' | 'unavailable';
   slack: 'connected' | 'disconnected' | 'blocked' | 'low_credits' | 'unavailable';
   metaAds: 'connected' | 'disconnected' | 'blocked' | 'low_credits' | 'unavailable';
-  recallAi: 'connected' | 'disconnected' | 'blocked' | 'low_credits' | 'unavailable';
+  whatsapp: 'connected' | 'disconnected' | 'blocked' | 'low_credits' | 'unavailable';
 }
 
 export interface OverviewData {
@@ -462,7 +462,7 @@ function getUnavailableDashboardPayload(): DashboardPayload {
         calendar: 'unavailable',
         slack: 'unavailable',
         metaAds: 'unavailable',
-        recallAi: 'unavailable',
+        whatsapp: 'unavailable',
       },
     },
     strategic: { priorities: [], dataSource: unavailable },
@@ -747,7 +747,8 @@ export async function getDashboardData(): Promise<DashboardPayload> {
       lastUpdated: new Date().toISOString(),
       dailyBriefStatus: 'sent',
       connections: mappedConnections,
-      calendarReason: calendarConnection?.reason,
+      calendarReason:
+        calendarConnection?.reason ?? undefined,
       connectionSources,
     };
 
@@ -869,7 +870,7 @@ function mapConnectionSources(connections: HermesConnection[]): Record<string, D
     ['calendar', byName('Calendar')],
     ['slack', byName('Slack')],
     ['metaAds', byName('Meta Ads')],
-    ['recallAi', byName('Recall.ai')],
+    ['whatsapp', byName('WhatsApp')],
   ];
   const sources: Record<string, DataSource> = {};
   for (const [key, conn] of entries) {
@@ -892,7 +893,7 @@ function mapConnections(connections: HermesConnection[]): ConnectionStatus {
     calendar: status(byName('Calendar')),
     slack: status(byName('Slack')),
     metaAds: status(byName('Meta Ads')),
-    recallAi: status(byName('Recall.ai')),
+    whatsapp: status(byName('WhatsApp')),
   };
 }
 

@@ -22,7 +22,7 @@ import Legal from '@/components/Legal';
 import Finance from '@/components/Finance';
 import Logistics from '@/components/Logistics';
 import ApprovalOutbox from '@/components/ApprovalOutbox';
-
+import Connections from '@/components/Connections';
 
 
 export default function DashboardPage() {
@@ -188,6 +188,8 @@ export default function DashboardPage() {
         return <OverviewStats data={data} onNavigate={setActiveSection} onRefresh={handleRefresh} isRefreshing={isRefreshing} />;
       case 'brief':
         return <MorningBrief data={data} onRefresh={handleRefresh} isRefreshing={isRefreshing} />;
+      case 'connections':
+        return <Connections />;
       case 'priorities':
         return <StrategicPriorities priorities={data.strategic.priorities} dataSource={data.strategic.dataSource} />;
       case 'approval-outbox':

@@ -17,7 +17,7 @@ import {
   updateApproval,
 } from '@/lib/hermesClient';
 
-const actions = [
+const proposedActions = [
   ['accept', 'Accept', Check],
   ['reject', 'Reject', X],
   ['defer', 'Defer', Clock3],
@@ -58,7 +58,8 @@ export default function ApprovalOutbox() {
           (item) =>
             item.status !== 'approved' &&
             item.status !== 'completed' &&
-            item.status !== 'rejected'
+            item.status !== 'rejected' &&
+            item.status !== 'delegated'
         )
       );
 
@@ -168,8 +169,8 @@ export default function ApprovalOutbox() {
 
   function openEmailComposer(item: HermesApprovalItem) {
     setError(null);
-    setEmailing(item.id);
     setDelegating(null);
+    setEmailing(item.id);
     setEmailRecipient('');
     setEmailSubject(`Follow-up: ${item.title}`);
     setEmailBody(
@@ -240,8 +241,8 @@ export default function ApprovalOutbox() {
 
   function openDelegationComposer(item: HermesApprovalItem) {
     setError(null);
-    setDelegating(item.id);
     setEmailing(null);
+    setDelegating(item.id);
     setDelegateTo('');
     setDelegationNote(
       `Please take ownership of: ${item.title}`
@@ -277,13 +278,21 @@ export default function ApprovalOutbox() {
         delegation_note: instructions,
       });
 
-      setApprovedItems((current) =>
-        current.map((currentItem) =>
-          currentItem.id === item.id
-            ? updated
-            : currentItem
-        )
-      );
+      if (updated.status === 'completed') {
+        setApprovedItems((current) =>
+          current.filter(
+            (currentItem) => currentItem.id !== item.id
+          )
+        );
+      } else {
+        setApprovedItems((current) =>
+          current.map((currentItem) =>
+            currentItem.id === item.id
+              ? updated
+              : currentItem
+          )
+        );
+      }
 
       setDelegating(null);
       setDelegateTo('');
@@ -292,7 +301,7 @@ export default function ApprovalOutbox() {
       setError(
         err instanceof Error
           ? err.message
-          : 'Could not stage delegation.'
+          : 'Could not send delegation email.'
       );
     } finally {
       setExecuting(null);
@@ -416,23 +425,27 @@ export default function ApprovalOutbox() {
               )}
 
               <div className="mt-3 flex flex-wrap gap-2">
-                {actions.map(([decision, label, Icon]) => (
-                  <button
-                    type="button"
-                    key={decision}
-                    onClick={() => void decide(item, decision)}
-                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
-                      decision === 'accept'
-                        ? 'border-emerald-200 bg-emerald-50 text-green'
-                        : decision === 'reject'
-                          ? 'border-red-200 bg-red-50 text-red'
-                          : 'border-border-color bg-bg-secondary text-text-secondary hover:border-gold/40 hover:text-gold'
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {label}
-                  </button>
-                ))}
+                {proposedActions.map(
+                  ([decision, label, Icon]) => (
+                    <button
+                      type="button"
+                      key={decision}
+                      onClick={() =>
+                        void decide(item, decision)
+                      }
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                        decision === 'accept'
+                          ? 'border-emerald-200 bg-emerald-50 text-green'
+                          : decision === 'reject'
+                            ? 'border-red-200 bg-red-50 text-red'
+                            : 'border-border-color bg-bg-secondary text-text-secondary hover:border-gold/40 hover:text-gold'
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </button>
+                  )
+                )}
               </div>
             </article>
           ))}
@@ -462,7 +475,7 @@ export default function ApprovalOutbox() {
                 </p>
 
                 <p className="mt-1 text-xs text-text-muted">
-                  John approved this action. Choose what Francis
+                  John approved this action. Choose what Becca
                   should do next.
                 </p>
 
@@ -470,7 +483,9 @@ export default function ApprovalOutbox() {
                   <button
                     type="button"
                     disabled={executing === item.id}
-                    onClick={() => void executeAsanaTask(item)}
+                    onClick={() =>
+                      void executeAsanaTask(item)
+                    }
                     className="rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
                   >
                     Create Asana task
@@ -479,7 +494,9 @@ export default function ApprovalOutbox() {
                   <button
                     type="button"
                     disabled={executing === item.id}
-                    onClick={() => openEmailComposer(item)}
+                    onClick={() =>
+                      openEmailComposer(item)
+                    }
                     className="rounded-lg border border-border-color bg-bg-secondary px-3 py-1.5 text-xs font-semibold text-text-secondary disabled:opacity-50"
                   >
                     Email someone
@@ -488,7 +505,9 @@ export default function ApprovalOutbox() {
                   <button
                     type="button"
                     disabled={executing === item.id}
-                    onClick={() => openDelegationComposer(item)}
+                    onClick={() =>
+                      openDelegationComposer(item)
+                    }
                     className="rounded-lg border border-border-color bg-bg-secondary px-3 py-1.5 text-xs font-semibold text-text-secondary disabled:opacity-50"
                   >
                     Delegate
@@ -598,7 +617,7 @@ export default function ApprovalOutbox() {
                       </p>
 
                       <p className="mt-1 text-xs text-text-muted">
-                        Nothing is dispatched until you confirm the delegation.
+                        The delegation email will be sent only after you confirm.
                       </p>
                     </div>
 
@@ -616,7 +635,7 @@ export default function ApprovalOutbox() {
                         onChange={(event) =>
                           setDelegateTo(event.target.value)
                         }
-                        placeholder="e.g. Laura, Francis, or Agent 3"
+                        placeholder="Name or email address"
                         className="w-full rounded-lg border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
                       />
                     </div>
@@ -645,11 +664,13 @@ export default function ApprovalOutbox() {
                       <button
                         type="button"
                         disabled={executing === item.id}
-                        onClick={() => void confirmDelegation(item)}
+                        onClick={() =>
+                          void confirmDelegation(item)
+                        }
                         className="rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
                       >
                         {executing === item.id
-                          ? 'Saving...'
+                          ? 'Sending...'
                           : 'Confirm delegation'}
                       </button>
 

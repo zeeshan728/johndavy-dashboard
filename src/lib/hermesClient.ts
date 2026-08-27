@@ -109,15 +109,33 @@ export interface HermesDashboardCache {
 }
 
 export interface HermesConnection {
+  id?: string;
   name: string;
-  status: 'connected' | 'not_connected' | 'blocked' | 'low_credits' | 'unavailable' | string;
-  account?: string;
-  note?: string;
-  reason?: string;
+
+  status:
+    | 'healthy'
+    | 'degraded'
+    | 'failed'
+    | 'not_configured'
+    | string;
+
+  account?: string | null;
+
+  last_checked?: string | null;
+  last_successful_sync?: string | null;
+  last_failure?: string | null;
+
+  error?: string | null;
+  reason?: string | null;
+
+  authentication_status?: string;
+  can_auto_fix?: boolean;
+
   source?: string;
   fetched_at?: string;
   from_cache?: boolean;
 }
+
 
 export function getDashboardCache() {
   return fetchHermes<{ data: HermesDashboardCache }>('/api/dashboard/cache').then((r) => r.data);

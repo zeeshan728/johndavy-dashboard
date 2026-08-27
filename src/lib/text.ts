@@ -84,7 +84,7 @@ const SOURCE_LABELS: Record<string, string> = {
   composio_asana_oauth: 'Asana',
   composio_drive_oauth: 'Google Drive',
   composio_github_oauth: 'GitHub',
-  recallai_api: 'Recall.ai',
+  whatsapp_bridge: 'WhatsApp',
   asana_cached_tasks: 'Asana',
   hermes_config: 'Hermes configuration',
   unavailable: 'Not connected',

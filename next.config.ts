@@ -8,6 +8,14 @@ const nextConfig: NextConfig = {
         destination: "/",
       },
       {
+        source: '/connections',
+        destination: '/',
+      },
+      {
+        source: '/system-health',
+        destination: '/',
+      },
+      {
         source: "/priorities",
         destination: "/",
       },

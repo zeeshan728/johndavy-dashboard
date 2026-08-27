@@ -20,6 +20,7 @@ import {
   LogOut,
   X,
   MessageCircle,
+  Activity,
   Landmark,
 } from 'lucide-react';
 import { ConnectionStatus, DataSource } from '@/lib/dataService';
@@ -38,11 +39,17 @@ export type SectionId =
   | 'meetings'
   | 'logistics'
   | 'legal'
-  | 'finance';
+  | 'finance'
+  | 'connections';
 
 export const SECTIONS: { id: SectionId; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'brief', label: 'Morning Brief', icon: Sparkles },
+  {
+    id: 'connections',
+    label: 'Connections / Health',
+    icon: Activity,
+  },
   { id: 'priorities', label: 'Strategic Priorities', icon: Target },
   { id: 'approval-outbox', label: 'Proposed Actions', icon: Inbox },
   { id: 'revenue', label: 'Revenue Pulse', icon: DollarSign },
@@ -74,7 +81,7 @@ const CONNECTION_LABELS: Record<string, string> = {
   calendar: 'Calendar',
   slack: 'Slack',
   metaAds: 'Meta Ads',
-  recallAi: 'Recall.ai',
+  whatsapp: 'WhatsApp',
 };
 
 export default function Sidebar({
@@ -110,8 +117,14 @@ export default function Sidebar({
   }, []);
 
   const connectedCount = connectionsList
-    ? connectionsList.filter((c) => c.status === 'connected').length
+    ? connectionsList.filter((connection) =>
+        ['connected', 'healthy', 'active'].includes(
+          connection.status,
+        ),
+      ).length
     : 0;
+
+
   const totalCount = connectionsList ? connectionsList.length : 0;
 
   const connectionsTooltip = connectionsList
@@ -230,14 +243,23 @@ export default function Sidebar({
             title={connectionsTooltip}
           >
             <span className="relative flex h-2 w-2 shrink-0">
-              {!connectionsLoading && connectionsList !== null && connectedCount === totalCount && totalCount > 0 && (
+              {!connectionsLoading && connectionsList !== null && connectedCount === totalCount &&
+                totalCount > 0 &&
+                connectionsList.every(
+                  (connection) => connection.status === 'healthy',
+                )
+                && (
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60" />
               )}
               <span
                 className={`relative inline-flex rounded-full h-2 w-2 ${
                   connectionsLoading || connectionsList === null
                     ? 'bg-neutral-500/50'
-                    : connectedCount === totalCount && totalCount > 0
+                    : connectedCount === totalCount &&
+                      totalCount > 0 &&
+                      connectionsList.every(
+                        (connection) => connection.status === 'healthy',
+                      )
                     ? 'bg-emerald-500'
                     : 'bg-amber-500'
                 }`}

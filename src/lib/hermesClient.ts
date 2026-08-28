@@ -575,23 +575,27 @@ export interface HermesApprovalItem {
   status: string;
   created_at: string;
   updated_at: string;
+  importance?: number;
   note?: string;
   delegate_to?: string;
   execution_status?: string;
   execution_error?: string;
   execution_note?: string;
-  delegation_note?: string;
   execution?: {
     system?: string;
     task_gid?: string;
     task_name?: string;
     url?: string;
   };
-
 }
 
-export function getApprovals() {
-  return fetch('/api/approvals', {
+
+export function getApprovals(date?: string) {
+  const query = date
+    ? `?date=${encodeURIComponent(date)}`
+    : '';
+
+  return fetch(`/api/approvals${query}`, {
     cache: 'no-store',
   }).then(async (response) => {
     if (!response.ok) {
@@ -603,10 +607,13 @@ export function getApprovals() {
     return response.json() as Promise<{
       items: HermesApprovalItem[];
       total: number;
+      review_date: string;
       source: string;
     }>;
   });
 }
+
+
 
 export function updateApproval(
   id: string,

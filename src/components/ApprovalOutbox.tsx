@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  CalendarDays,
   Check,
   Clock3,
   Edit3,
@@ -17,11 +18,11 @@ import {
   updateApproval,
 } from '@/lib/hermesClient';
 
-const proposedActions = [
+const actions = [
   ['accept', 'Accept', Check],
   ['reject', 'Reject', X],
   ['defer', 'Defer', Clock3],
-  ['ask_context', 'More Context', HelpCircle],
+  ['ask_context', 'More context', HelpCircle],
   ['edit', 'Edit', Edit3],
 ] as const;
 
@@ -29,13 +30,12 @@ export default function ApprovalOutbox() {
   const router = useRouter();
 
   const [items, setItems] = useState<HermesApprovalItem[]>([]);
-  const [approvedItems, setApprovedItems] = useState<
-    HermesApprovalItem[]
-  >([]);
-
+  const [approvedItems, setApprovedItems] = useState<HermesApprovalItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+
   const [executing, setExecuting] = useState<string | null>(null);
 
   const [emailing, setEmailing] = useState<string | null>(null);
@@ -47,52 +47,49 @@ export default function ApprovalOutbox() {
   const [delegateTo, setDelegateTo] = useState('');
   const [delegationNote, setDelegationNote] = useState('');
 
-  async function loadApprovals() {
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const date = new Date();
+
+    // Default to yesterday because the dashboard reviews completed meetings.
+    date.setDate(date.getDate() - 1);
+
+    return date.toISOString().slice(0, 10);
+  });
+
+  const [reviewDate, setReviewDate] = useState('');
+
+  const load = async () => {
     try {
       setError(null);
 
-      const result = await getApprovals();
+      const result = await getApprovals(selectedDate);
+
+      setReviewDate(result.review_date);
 
       setItems(
-        result.items.filter(
-          (item) =>
-            item.status !== 'approved' &&
-            item.status !== 'completed' &&
-            item.status !== 'rejected' &&
-            item.status !== 'delegated'
-        )
+        result.items.filter((item) => item.status !== 'approved')
       );
 
       setApprovedItems(
-        result.items.filter(
-          (item) =>
-            item.status === 'approved' ||
-            item.execution_status === 'awaiting_execution' ||
-            item.execution_status === 'email_draft_required' ||
-            item.execution_status === 'delegation_staged'
-        )
+        result.items.filter((item) => item.status === 'approved')
       );
-    } catch (err) {
+    } catch (e) {
       setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not load proposed actions.'
+        e instanceof Error
+          ? e.message
+          : 'Could not load approvals.'
       );
     }
-  }
+  };
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadApprovals();
-    }, 0);
+    void load();
+  }, [selectedDate]);
 
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  async function decide(
+  const act = async (
     item: HermesApprovalItem,
     decision: string
-  ) {
+  ) => {
     if (decision === 'edit') {
       setEditing(item.id);
       setDraft(item.title);
@@ -112,33 +109,27 @@ export default function ApprovalOutbox() {
       });
 
       setItems((current) =>
-        current.filter(
-          (currentItem) => currentItem.id !== item.id
-        )
+        current.filter((currentItem) => currentItem.id !== item.id)
       );
 
       if (decision === 'accept') {
         setApprovedItems((current) => [
+          ...current,
           updated,
-          ...current.filter(
-            (currentItem) => currentItem.id !== item.id
-          ),
         ]);
       }
-    } catch (err) {
+    } catch (e) {
       setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not update proposed action.'
+        e instanceof Error
+          ? e.message
+          : 'Could not update approval.'
       );
     }
-  }
+  };
 
-  async function saveEdit(item: HermesApprovalItem) {
-    const editedText = draft.trim();
-
-    if (!editedText) {
-      setError('The edited action cannot be empty.');
+  const saveEdit = async (item: HermesApprovalItem) => {
+    if (!draft.trim()) {
+      setError('The proposed action cannot be empty.');
       return;
     }
 
@@ -147,123 +138,55 @@ export default function ApprovalOutbox() {
 
       const updated = await updateApproval(item.id, {
         decision: 'edit',
-        edited_text: editedText,
+        edited_text: draft.trim(),
       });
 
       setItems((current) =>
         current.map((currentItem) =>
-          currentItem.id === item.id ? updated : currentItem
+          currentItem.id === item.id
+            ? updated
+            : currentItem
         )
       );
 
       setEditing(null);
       setDraft('');
-    } catch (err) {
+    } catch (e) {
       setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not save the edited action.'
+        e instanceof Error
+          ? e.message
+          : 'Could not save edit.'
       );
     }
-  }
+  };
 
-  function openEmailComposer(item: HermesApprovalItem) {
+  const openDelegationComposer = (
+    item: HermesApprovalItem
+  ) => {
     setError(null);
-    setDelegating(null);
-    setEmailing(item.id);
-    setEmailRecipient('');
-    setEmailSubject(`Follow-up: ${item.title}`);
-    setEmailBody(
-      `Hi,\n\nFollowing up on: ${item.title}\n\nBest,\nJohn`
-    );
-  }
-
-  function closeEmailComposer() {
-    if (executing) return;
-
-    setEmailing(null);
-    setEmailRecipient('');
-    setEmailSubject('');
-    setEmailBody('');
-  }
-
-  async function sendEmail(item: HermesApprovalItem) {
-    const recipient = emailRecipient.trim();
-    const subject = emailSubject.trim();
-    const body = emailBody.trim();
-
-    if (!recipient || !subject || !body) {
-      setError(
-        'Recipient, subject, and message are all required.'
-      );
-      return;
-    }
-
-    setExecuting(item.id);
-    setError(null);
-
-    try {
-      const updated = await executeApproval(item.id, {
-        action: 'email',
-        recipient_email: recipient,
-        subject,
-        body,
-      });
-
-      if (updated.status === 'completed') {
-        setApprovedItems((current) =>
-          current.filter(
-            (currentItem) => currentItem.id !== item.id
-          )
-        );
-
-        setEmailing(null);
-        setEmailRecipient('');
-        setEmailSubject('');
-        setEmailBody('');
-      } else {
-        setApprovedItems((current) =>
-          current.map((currentItem) =>
-            currentItem.id === item.id ? updated : currentItem
-          )
-        );
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not send email.'
-      );
-    } finally {
-      setExecuting(null);
-    }
-  }
-
-  function openDelegationComposer(item: HermesApprovalItem) {
-    setError(null);
-    setEmailing(null);
     setDelegating(item.id);
     setDelegateTo('');
     setDelegationNote(
       `Please take ownership of: ${item.title}`
     );
-  }
+  };
 
-  function closeDelegationComposer() {
-    if (executing) return;
+  const closeDelegationComposer = () => {
+    if (executing) {
+      return;
+    }
 
     setDelegating(null);
     setDelegateTo('');
     setDelegationNote('');
-  }
+  };
 
-  async function confirmDelegation(item: HermesApprovalItem) {
-    const target = delegateTo.trim();
-    const instructions = delegationNote.trim();
-
-    if (!target || !instructions) {
+  const confirmDelegation = async (
+    item: HermesApprovalItem
+  ) => {
+    if (!delegateTo.trim() || !delegationNote.trim()) {
       setError(
-        'A person or agent and delegation instructions are required.'
+        'Delegate to and delegation instructions are required.'
       );
       return;
     }
@@ -274,8 +197,8 @@ export default function ApprovalOutbox() {
     try {
       const updated = await executeApproval(item.id, {
         action: 'delegate',
-        delegate_to: target,
-        delegation_note: instructions,
+        delegate_to: delegateTo.trim(),
+        delegation_note: delegationNote.trim(),
       });
 
       if (updated.status === 'completed') {
@@ -294,21 +217,83 @@ export default function ApprovalOutbox() {
         );
       }
 
-      setDelegating(null);
-      setDelegateTo('');
-      setDelegationNote('');
-    } catch (err) {
+      closeDelegationComposer();
+    } catch (e) {
       setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not send delegation email.'
+        e instanceof Error
+          ? e.message
+          : 'Could not stage delegation.'
       );
     } finally {
       setExecuting(null);
     }
-  }
+  };
 
-  async function executeAsanaTask(item: HermesApprovalItem) {
+  const openEmailComposer = (
+    item: HermesApprovalItem
+  ) => {
+    setError(null);
+    setEmailing(item.id);
+    setEmailRecipient('');
+    setEmailSubject(`Follow-up: ${item.title}`);
+    setEmailBody(
+      `Hi,\n\nFollowing up on: ${item.title}\n\nBest,\nJohn`
+    );
+  };
+
+  const sendEmail = async (
+    item: HermesApprovalItem
+  ) => {
+    if (
+      !emailRecipient.trim() ||
+      !emailSubject.trim() ||
+      !emailBody.trim()
+    ) {
+      setError(
+        'Recipient, subject, and message are required.'
+      );
+      return;
+    }
+
+    setExecuting(item.id);
+    setError(null);
+
+    try {
+      const updated = await executeApproval(item.id, {
+        action: 'email',
+        recipient_email: emailRecipient.trim(),
+        subject: emailSubject.trim(),
+        body: emailBody.trim(),
+      });
+
+      setEmailing(null);
+
+      setApprovedItems((current) =>
+        current.filter(
+          (currentItem) => currentItem.id !== item.id
+        )
+      );
+
+      if (updated.status !== 'completed') {
+        setApprovedItems((current) => [
+          ...current,
+          updated,
+        ]);
+      }
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Could not send email.'
+      );
+    } finally {
+      setExecuting(null);
+    }
+  };
+
+  const execute = async (
+    item: HermesApprovalItem
+  ) => {
     setExecuting(item.id);
     setError(null);
 
@@ -332,396 +317,349 @@ export default function ApprovalOutbox() {
           )
         );
       }
-    } catch (err) {
+    } catch (e) {
       setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not create the Asana task.'
+        e instanceof Error
+          ? e.message
+          : 'Could not execute approval.'
       );
     } finally {
       setExecuting(null);
     }
-  }
+  };
 
   return (
     <section className="rounded-2xl border border-gold/30 bg-bg-secondary p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between border-b border-border-color pb-3">
-        <div className="flex items-center gap-2">
-          <Inbox className="h-5 w-5 text-gold" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
+        {/* Left column: header and date filter */}
+        <div className="min-w-0">
+          <div className="flex flex-col gap-3 border-b border-border-color pb-4">
+            <div className="flex items-center gap-2">
+              <Inbox className="h-5 w-5 text-gold" />
 
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-gold">
-              Proposed Actions
-            </h2>
+              <div>
+                <h2 className="text-sm font-bold uppercase tracking-wide text-gold">
+                  Proposed actions
+                </h2>
 
-            <p className="mt-0.5 text-xs text-text-muted">
-              Review proposed actions before anything happens.
-            </p>
-          </div>
-        </div>
-
-        <span className="rounded-full bg-gold/10 px-2.5 py-1 text-xs font-bold text-gold">
-          {items.length} proposed
-        </span>
-      </div>
-
-      {error && (
-        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red">
-          {error}
-        </p>
-      )}
-
-      <div>
-        <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-text-muted">
-          Proposed actions
-        </h3>
-
-        {!items.length && (
-          <p className="text-sm text-text-secondary">
-            No proposed actions awaiting review.
-          </p>
-        )}
-
-        <div className="space-y-3">
-          {items.map((item) => (
-            <article
-              key={item.id}
-              className="rounded-xl border border-border-color bg-bg-card p-4"
-            >
-              <p className="text-sm font-medium leading-relaxed text-text-primary">
-                {item.prompt || item.title}
-              </p>
-
-              <p className="mt-2 text-xs text-text-muted">
-                {item.source.meeting_title || 'Meeting transcript'}
-
-                {item.source.people?.length
-                  ? ` · ${item.source.people.join(', ')}`
-                  : ''}
-
-                {item.category
-                  ? ` · ${item.category.replace(/_/g, ' ')}`
-                  : ''}
-              </p>
-
-              {editing === item.id && (
-                <div className="mt-3 flex gap-2">
-                  <input
-                    value={draft}
-                    onChange={(event) =>
-                      setDraft(event.target.value)
-                    }
-                    className="min-w-0 flex-1 rounded-lg border border-border-color bg-bg-secondary px-3 py-2 text-sm text-text-primary"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => void saveEdit(item)}
-                    className="rounded-lg bg-gold px-3 py-2 text-xs font-bold text-white"
-                  >
-                    Save
-                  </button>
-                </div>
-              )}
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {proposedActions.map(
-                  ([decision, label, Icon]) => (
-                    <button
-                      type="button"
-                      key={decision}
-                      onClick={() =>
-                        void decide(item, decision)
-                      }
-                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
-                        decision === 'accept'
-                          ? 'border-emerald-200 bg-emerald-50 text-green'
-                          : decision === 'reject'
-                            ? 'border-red-200 bg-red-50 text-red'
-                            : 'border-border-color bg-bg-secondary text-text-secondary hover:border-gold/40 hover:text-gold'
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      {label}
-                    </button>
-                  )
-                )}
+                <p className="mt-0.5 text-xs text-text-muted">
+                  Review first. Nothing executes automatically.
+                </p>
               </div>
-            </article>
-          ))}
-        </div>
-      </div>
+            </div>
 
-      {approvedItems.length > 0 && (
-        <div className="mt-7 border-t border-border-color pt-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-gold">
-              Approved actions
-            </h3>
+            <label className="flex min-h-[44px] items-center gap-2 text-xs font-semibold text-text-secondary">
+              <CalendarDays
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0 text-gold"
+              />
 
-            <span className="text-xs text-text-muted">
-              Choose execution
-            </span>
+              <span className="sr-only">
+                Select meeting date
+              </span>
+
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(event) =>
+                  setSelectedDate(event.target.value)
+                }
+                className="min-h-[40px] rounded-lg border border-border-color bg-bg-card px-2.5 py-1.5 text-xs text-text-primary outline-none transition focus:border-gold focus:ring-2 focus:ring-gold/20"
+              />
+
+              <span className="whitespace-nowrap rounded-full bg-gold/10 px-2.5 py-1 text-xs font-bold text-gold">
+                {items.length}/5
+              </span>
+            </label>
           </div>
+
+          {error && (
+            <p className="mb-3 mt-3 text-sm text-red">
+              {error}
+            </p>
+          )}
+
+          <p className="mb-3 mt-3 text-xs text-text-muted">
+            Showing the five most important proposed actions
+            from meetings on{' '}
+            {reviewDate || selectedDate}.
+          </p>
+        </div>
+
+        {/* Right column: proposed tasks and approved tasks */}
+        <div className="min-w-0">
+          {!items.length && !error && (
+            <p className="text-sm text-text-secondary">
+              No proposed actions for this date.
+            </p>
+          )}
 
           <div className="space-y-3">
-            {approvedItems.map((item) => (
+            {items.map((item) => (
               <article
                 key={item.id}
                 className="rounded-xl border border-border-color bg-bg-card p-4"
               >
-                <p className="text-sm font-medium text-text-primary">
-                  {item.title}
+                <p className="text-sm font-medium leading-relaxed text-text-primary">
+                  {item.prompt}
                 </p>
 
-                <p className="mt-1 text-xs text-text-muted">
-                  John approved this action. Choose what Becca
-                  should do next.
+                <p className="mt-2 text-xs text-text-muted">
+                  {item.source.meeting_title ||
+                    'Meeting transcript'}
+
+                  {item.source.people?.length
+                    ? ` · ${item.source.people.join(', ')}`
+                    : ''}
+
+                  {item.category
+                    ? ` · ${item.category.replace(/_/g, ' ')}`
+                    : ''}
                 </p>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={executing === item.id}
-                    onClick={() =>
-                      void executeAsanaTask(item)
-                    }
-                    className="rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-                  >
-                    Create Asana task
-                  </button>
+                {editing === item.id && (
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={draft}
+                      onChange={(event) =>
+                        setDraft(event.target.value)
+                      }
+                      className="min-w-0 flex-1 rounded-lg border border-border-color bg-bg-secondary px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
+                    />
 
-                  <button
-                    type="button"
-                    disabled={executing === item.id}
-                    onClick={() =>
-                      openEmailComposer(item)
-                    }
-                    className="rounded-lg border border-border-color bg-bg-secondary px-3 py-1.5 text-xs font-semibold text-text-secondary disabled:opacity-50"
-                  >
-                    Email someone
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={executing === item.id}
-                    onClick={() =>
-                      openDelegationComposer(item)
-                    }
-                    className="rounded-lg border border-border-color bg-bg-secondary px-3 py-1.5 text-xs font-semibold text-text-secondary disabled:opacity-50"
-                  >
-                    Delegate
-                  </button>
-                </div>
-
-                {emailing === item.id && (
-                  <div className="mt-4 space-y-3 rounded-xl border border-border-color bg-bg-secondary p-4">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wide text-gold">
-                        Draft email
-                      </p>
-
-                      <p className="mt-1 text-xs text-text-muted">
-                        Nothing will be sent until you click Send email.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor={`recipient-${item.id}`}
-                        className="mb-1 block text-xs font-semibold text-text-secondary"
-                      >
-                        Recipient
-                      </label>
-
-                      <input
-                        id={`recipient-${item.id}`}
-                        type="email"
-                        value={emailRecipient}
-                        onChange={(event) =>
-                          setEmailRecipient(event.target.value)
-                        }
-                        placeholder="person@example.com"
-                        className="w-full rounded-lg border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor={`subject-${item.id}`}
-                        className="mb-1 block text-xs font-semibold text-text-secondary"
-                      >
-                        Subject
-                      </label>
-
-                      <input
-                        id={`subject-${item.id}`}
-                        value={emailSubject}
-                        onChange={(event) =>
-                          setEmailSubject(event.target.value)
-                        }
-                        placeholder="Email subject"
-                        className="w-full rounded-lg border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor={`body-${item.id}`}
-                        className="mb-1 block text-xs font-semibold text-text-secondary"
-                      >
-                        Message
-                      </label>
-
-                      <textarea
-                        id={`body-${item.id}`}
-                        value={emailBody}
-                        onChange={(event) =>
-                          setEmailBody(event.target.value)
-                        }
-                        rows={8}
-                        placeholder="Write your message"
-                        className="w-full resize-y rounded-lg border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
-                      />
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={executing === item.id}
-                        onClick={() => void sendEmail(item)}
-                        className="rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-                      >
-                        {executing === item.id
-                          ? 'Sending...'
-                          : 'Send email'}
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={executing === item.id}
-                        onClick={closeEmailComposer}
-                        className="rounded-lg border border-border-color px-3 py-1.5 text-xs font-semibold text-text-secondary disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => saveEdit(item)}
+                      className="rounded-lg bg-gold px-3 py-2 text-xs font-bold text-white transition hover:bg-gold/90"
+                    >
+                      Save
+                    </button>
                   </div>
                 )}
 
-                {delegating === item.id && (
-                  <div className="mt-4 space-y-3 rounded-xl border border-border-color bg-bg-secondary p-4">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wide text-gold">
-                        Delegate action
-                      </p>
-
-                      <p className="mt-1 text-xs text-text-muted">
-                        The delegation email will be sent only after you confirm.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor={`delegate-to-${item.id}`}
-                        className="mb-1 block text-xs font-semibold text-text-secondary"
-                      >
-                        Person or agent
-                      </label>
-
-                      <input
-                        id={`delegate-to-${item.id}`}
-                        value={delegateTo}
-                        onChange={(event) =>
-                          setDelegateTo(event.target.value)
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {actions.map(
+                    ([decision, label, Icon]) => (
+                      <button
+                        key={decision}
+                        type="button"
+                        onClick={() =>
+                          act(item, decision)
                         }
-                        placeholder="Name or email address"
-                        className="w-full rounded-lg border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor={`delegation-note-${item.id}`}
-                        className="mb-1 block text-xs font-semibold text-text-secondary"
+                        className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                          decision === 'accept'
+                            ? 'border-emerald-200 bg-emerald-50 text-green hover:bg-emerald-100'
+                            : decision === 'reject'
+                              ? 'border-red-200 bg-red-50 text-red hover:bg-red-100'
+                              : 'border-border-color bg-bg-secondary text-text-secondary hover:border-gold/40 hover:text-gold'
+                        }`}
                       >
-                        Instructions
-                      </label>
+                        <Icon
+                          aria-hidden="true"
+                          className="h-3.5 w-3.5"
+                        />
 
-                      <textarea
-                        id={`delegation-note-${item.id}`}
-                        value={delegationNote}
-                        onChange={(event) =>
-                          setDelegationNote(event.target.value)
-                        }
-                        rows={6}
-                        placeholder="What should this person or agent do?"
-                        className="w-full resize-y rounded-lg border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
-                      />
-                    </div>
+                        {label}
+                      </button>
+                    )
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
 
-                    <div className="flex gap-2">
+          {approvedItems.length > 0 && (
+            <div className="mt-6 border-t border-border-color pt-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-gold">
+                  Approved actions
+                </h3>
+
+                <span className="text-xs text-text-muted">
+                  Choose execution
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {approvedItems.map((item) => (
+                  <article
+                    key={item.id}
+                    className="rounded-xl border border-border-color bg-bg-card p-4"
+                  >
+                    <p className="text-sm font-medium text-text-primary">
+                      {item.title}
+                    </p>
+
+                    <p className="mt-1 text-xs text-text-muted">
+                      Choose whether Francis should create an
+                      Asana task or prepare an email.
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={executing === item.id}
+                        onClick={() => execute(item)}
+                        className="min-h-[40px] rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-white transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Create Asana task
+                      </button>
+
                       <button
                         type="button"
                         disabled={executing === item.id}
                         onClick={() =>
-                          void confirmDelegation(item)
+                          openEmailComposer(item)
                         }
-                        className="rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                        className="min-h-[40px] rounded-lg border border-border-color bg-bg-secondary px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:border-gold/40 hover:text-gold disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {executing === item.id
-                          ? 'Sending...'
-                          : 'Confirm delegation'}
+                        Email someone
                       </button>
 
                       <button
                         type="button"
                         disabled={executing === item.id}
-                        onClick={closeDelegationComposer}
-                        className="rounded-lg border border-border-color px-3 py-1.5 text-xs font-semibold text-text-secondary disabled:opacity-50"
+                        onClick={() =>
+                          openDelegationComposer(item)
+                        }
+                        className="min-h-[40px] rounded-lg border border-border-color bg-bg-secondary px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:border-gold/40 hover:text-gold disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Cancel
+                        Delegate
                       </button>
                     </div>
-                  </div>
-                )}
 
-                {item.execution_status && (
-                  <p className="mt-3 text-xs text-text-muted">
-                    Status: {item.execution_status}
+                    {delegating === item.id && (
+                      <div className="mt-4 space-y-2 rounded-xl border border-border-color bg-bg-secondary p-3">
+                        <p className="text-xs font-bold uppercase tracking-wide text-gold">
+                          Delegate action
+                        </p>
 
-                    {item.execution_error
-                      ? ` — ${item.execution_error}`
-                      : ''}
-                  </p>
-                )}
+                        <input
+                          value={delegateTo}
+                          onChange={(event) =>
+                            setDelegateTo(event.target.value)
+                          }
+                          placeholder="Person or agent"
+                          className="min-h-[40px] w-full rounded-lg border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
+                        />
 
-                {item.execution_note && (
-                  <p className="mt-1 text-xs text-text-muted">
-                    {item.execution_note}
-                  </p>
-                )}
+                        <textarea
+                          value={delegationNote}
+                          onChange={(event) =>
+                            setDelegationNote(
+                              event.target.value
+                            )
+                          }
+                          rows={5}
+                          placeholder="Delegation instructions"
+                          className="w-full rounded-lg border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
+                        />
 
-                {item.execution?.url && (
-                  <a
-                    href={item.execution.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-block text-xs font-semibold text-gold underline"
-                  >
-                    Open Asana task
-                  </a>
-                )}
-              </article>
-            ))}
-          </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={executing === item.id}
+                            onClick={() =>
+                              confirmDelegation(item)
+                            }
+                            className="min-h-[40px] rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Confirm delegation
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={executing === item.id}
+                            onClick={closeDelegationComposer}
+                            className="min-h-[40px] rounded-lg border border-border-color px-3 py-1.5 text-xs font-semibold text-text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {emailing === item.id && (
+                      <div className="mt-4 space-y-2 rounded-xl border border-border-color bg-bg-secondary p-3">
+                        <p className="text-xs font-bold uppercase tracking-wide text-gold">
+                          Draft email
+                        </p>
+
+                        <input
+                          value={emailRecipient}
+                          onChange={(event) =>
+                            setEmailRecipient(
+                              event.target.value
+                            )
+                          }
+                          placeholder="Recipient email"
+                          type="email"
+                          className="min-h-[40px] w-full rounded-lg border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
+                        />
+
+                        <input
+                          value={emailSubject}
+                          onChange={(event) =>
+                            setEmailSubject(
+                              event.target.value
+                            )
+                          }
+                          placeholder="Subject"
+                          className="min-h-[40px] w-full rounded-lg border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
+                        />
+
+                        <textarea
+                          value={emailBody}
+                          onChange={(event) =>
+                            setEmailBody(event.target.value)
+                          }
+                          rows={6}
+                          className="w-full rounded-lg border border-border-color bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-gold"
+                        />
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={executing === item.id}
+                            onClick={() => sendEmail(item)}
+                            className="min-h-[40px] rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Send email
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={executing === item.id}
+                            onClick={() => setEmailing(null)}
+                            className="min-h-[40px] rounded-lg border border-border-color px-3 py-1.5 text-xs font-semibold text-text-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {item.execution_status && (
+                      <p className="mt-2 text-xs text-text-muted">
+                        Status: {item.execution_status}
+
+                        {item.execution_error
+                          ? ` — ${item.execution_error}`
+                          : ''}
+                      </p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p className="mt-4 text-[11px] text-text-muted">
+            Accepting moves an item into Approval Outbox.
+            Execution only begins after your second choice.
+          </p>
         </div>
-      )}
-
-      <p className="mt-5 text-[11px] text-text-muted">
-        Accepting an action moves it into Approved actions.
-        Nothing executes until you choose and confirm an execution method.
-      </p>
+      </div>
     </section>
   );
 }

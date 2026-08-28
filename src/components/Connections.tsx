@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
+  CheckCircle2,
   CircleHelp,
   Loader2,
   RefreshCw,
@@ -18,6 +19,37 @@ type Status =
   | 'degraded'
   | 'failed'
   | 'not_configured';
+
+const connectionStyles: Record<
+  Status,
+  {
+    dot: string;
+    text: string;
+    label: string;
+  }
+> = {
+  healthy: {
+    dot: 'bg-emerald-400',
+    text: 'text-emerald-200',
+    label: 'Healthy',
+  },
+  degraded: {
+    dot: 'bg-amber-400',
+    text: 'text-amber-200',
+    label: 'Requires attention',
+  },
+  failed: {
+    dot: 'bg-red-400',
+    text: 'text-red-200',
+    label: 'Failed',
+  },
+  not_configured: {
+    dot: 'bg-slate-400',
+    text: 'text-slate-300',
+    label: 'Not configured',
+  },
+};
+
 
 type Connection = {
   id: string;
@@ -357,6 +389,8 @@ export default function Connections() {
     return null;
   }
 
+  const nodes = health?.connections || [];
+
   const summary = health.summary || {
     healthy: 0,
     attention: 0,
@@ -450,64 +484,82 @@ export default function Connections() {
         </div>
       </div>
 
-      <section className="rounded-2xl border border-border-color bg-bg-secondary p-4 sm:p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <Activity className="h-4 w-4 text-gold" />
+      <div className="rounded-2xl border border-blue-200/60 bg-bg-secondary p-4 shadow-sm sm:p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-blue-600" />
 
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-text-primary">
-              Connection graph
-            </h2>
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-blue-950">
+                Connection graph
+              </h2>
 
-            <p className="text-xs text-text-muted">
-              Select a system to inspect its current health.
-            </p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Live system links — click a node for diagnostics.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 gap-3 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <span>
+              <i className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />
+              Active
+            </span>
+
+            <span>
+              <i className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500" />
+              Failed
+            </span>
           </div>
         </div>
 
-        <div className="relative mx-auto h-[420px] max-w-[760px] overflow-hidden rounded-xl bg-bg-card">
+        <div className="connection-graph relative mx-auto min-h-[640px] w-full max-w-[1280px] overflow-hidden rounded-2xl border border-blue-200/70 bg-blue-950">
+          <div className="connection-graph-grid absolute inset-0" />
+
           <svg
             className="absolute inset-0 h-full w-full"
-            viewBox="0 0 760 420"
+            viewBox="0 0 1120 560"
+            preserveAspectRatio="none"
             role="img"
             aria-label="Francis connection graph"
           >
-            {connections.map((_, index) => {
+            {nodes.map((connection, index) => {
               const angle =
-                (index / Math.max(connections.length, 1)) *
-                  Math.PI *
-                  2 -
+                (index / Math.max(nodes.length, 1)) * Math.PI * 2 -
                 Math.PI / 2;
+
+              const failed = connection.status === 'failed';
 
               return (
                 <line
-                  key={`line-${index}`}
-                  className="connection-graph-line"
-                  x1="380"
-                  y1="210"
-                  x2={380 + Math.cos(angle) * 270}
-                  y2={210 + Math.sin(angle) * 160}
-                  stroke="var(--border-color)"
-                  strokeWidth="2"
+                  key={`line-${connection.id}`}
+                  className={`connection-graph-line ${
+                    failed
+                      ? 'connection-graph-line-failed'
+                      : 'connection-graph-line-active'
+                  }`}
+                  x1="560"
+                  y1="280"
+                  x2={560 + Math.cos(angle) * 455}
+                  y2={280 + Math.sin(angle) * 220}
+                  stroke={failed ? '#f87171' : '#34d399'}
+                  strokeWidth={failed ? '3' : '4'}
                 />
               );
             })}
           </svg>
 
-          <div className="connection-center-pulse absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-gold bg-gold/10 text-center text-xs font-bold tracking-widest text-gold">
+          <div className="connection-center-pulse absolute left-1/2 top-1/2 z-10 flex h-32 w-32 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-blue-300 bg-blue-900 text-center text-xs font-bold tracking-[0.22em] text-blue-100 shadow-2xl shadow-blue-950/80">
             FRANCIS
           </div>
 
-          {connections.map((connection, index) => {
+          {nodes.map((connection, index) => {
             const angle =
-              (index / Math.max(connections.length, 1)) *
-                Math.PI *
-                2 -
+              (index / Math.max(nodes.length, 1)) * Math.PI * 2 -
               Math.PI / 2;
 
-            const meta =
-              STATUS_META[connection.status] ||
-              STATUS_META.not_configured;
+            const status = connectionStyles[connection.status];
+            const failed = connection.status === 'failed';
 
             return (
               <button
@@ -519,27 +571,41 @@ export default function Connections() {
                   setError(null);
                 }}
                 style={{
-                  left: `calc(50% + ${Math.cos(angle) * 35}%)`,
-                  top: `calc(50% + ${Math.sin(angle) * 38}%)`,
+                  left: `calc(50% + ${Math.cos(angle) * 40}%)`,
+                  top: `calc(50% + ${Math.sin(angle) * 39}%)`,
                 }}
-                className="connection-graph-node absolute flex w-28 -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 rounded-xl p-2 text-center text-xs font-semibold transition-colors hover:bg-bg-secondary"
+                className={`connection-graph-node absolute z-20 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-1 rounded-full border p-2 text-center text-[10px] font-semibold shadow-xl transition hover:scale-105 ${
+                  failed
+                    ? 'connection-graph-node-failed border-red-400/80 bg-red-950 text-red-50'
+                    : connection.status === 'healthy'
+                      ? 'connection-graph-node-active border-emerald-300/80 bg-blue-900 text-blue-50'
+                      : 'border-amber-300/80 bg-blue-900 text-blue-50'
+                }`}
               >
                 <span
-                  className={`h-3 w-3 rounded-full ${meta.dot} ${
-                    statusPulseClass(connection.status)
-                  } ring-4 ring-white/60`}
+                  className={`connection-status-pulse h-5 w-5 rounded-full ${
+                    failed ? 'bg-red-400' : status.dot
+                  } ring-4 ring-white/20`}
                 />
 
-                <span>{connection.name}</span>
+                <span className="max-w-[78px] overflow-hidden text-ellipsis whitespace-nowrap leading-tight">
+                  {connection.name}
+                </span>
 
-                <span className={`text-[10px] ${meta.text}`}>
-                  {meta.label}
+                <span
+                  className={`text-[10px] ${
+                    failed ? 'text-red-200' : 'text-blue-200'
+                  }`}
+                >
+                  {status.label}
                 </span>
               </button>
             );
           })}
         </div>
-      </section>
+      </div>
+
+
 
       <section>
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-text-primary">

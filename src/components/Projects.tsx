@@ -1,420 +1,61 @@
 'use client';
+import { useEffect, useState } from 'react';
+import { FolderKanban, Check, X, Mail, RefreshCw, AlertTriangle, Trash2 } from 'lucide-react';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { FolderKanban, Plus, Trash2, Smile, Meh, Frown, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
-import { ProjectSummary } from '@/lib/dataService';
-import {
-  ProjectNote,
-  ProjectStatus,
-  ProjectSentiment,
-  loadProjectNotes,
-  saveProjectNotes,
-  createProjectNote,
-} from '@/lib/projectNotes';
+type Candidate = { id: string; name: string; description: string; company: string; why: string; source: { meeting_id?: string; meeting_title?: string; meeting_date?: string; path?: string; source_url?: string }; people: string[]; objectives: string[]; deadline?: string; owner?: string; confidence: number; status: string };
+type Member = { id: string; name: string; role?: string; email?: string };
+type Project = { id: string; name: string; company: string; status: string; progress: number; team_members: Member[]; last_update?: string; blockers?: string[]; risks?: string[]; description: string };
 
-import { formatDate as formatDubaiDate } from '@/lib/text';
+const card = 'rounded-2xl border border-border-color bg-bg-secondary p-5 shadow-sm';
 
-interface ProjectsProps {
-  projects: ProjectSummary[];
+function formatDate(value: string) {
+  if (!value) return 'Unknown date';
+  return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-const STATUS_STYLES: Record<ProjectStatus, { label: string; dot: string; select: string }> = {
-  on_track: { label: 'On track', dot: 'bg-emerald-500', select: 'text-green' },
-  warning: { label: 'Needs attention', dot: 'bg-amber-500', select: 'text-amber' },
-  critical: { label: 'Critical', dot: 'bg-red-500', select: 'text-red' },
-};
-
-const SENTIMENT_ICONS: Record<ProjectSentiment, React.ElementType> = {
-  positive: Smile,
-  neutral: Meh,
-  negative: Frown,
-};
-
-function formatDate(date: string | null): string | null {
-  if (!date) return null;
-  return formatDubaiDate(date);
-}
-
-// Live completion/overdue data drives the visual status — the editable note's own
-// status dropdown is a separate, optional annotation layered on top, not the source
-// of truth for whether a project actually needs attention.
-function liveStatusDot(p: ProjectSummary): string {
-  if (p.overdueTasks.length >= 3) return 'bg-red-500';
-  if (p.overdueTasks.length > 0) return 'bg-amber-500';
-  if (p.completionPct >= 80) return 'bg-emerald-500';
-  if (p.completionPct >= 40) return 'bg-amber-500';
-  return 'bg-text-muted';
-}
-
-export default function Projects({ projects }: ProjectsProps) {
-  const [notes, setNotes] = useState<ProjectNote[] | null>(null);
-  const [newProjectName, setNewProjectName] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    setNotes(loadProjectNotes());
-  }, []);
-
-  const persist = (next: ProjectNote[]) => {
-    setNotes(next);
-    saveProjectNotes(next);
+export default function Projects() {
+  const [selectedDate, setSelectedDate] = useState('');
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]), [projects, setProjects] = useState<Project[]>([]), [members, setMembers] = useState<Member[]>([]);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [notify, setNotify] = useState(false);
+  const [confirming, setConfirming] = useState<Candidate | null>(null);
+  const [removing, setRemoving] = useState<Project | null>(null);
+  const [removalName, setRemovalName] = useState('');
+  const [transcript, setTranscript] = useState<{ title: string; date?: string; path?: string; content: string } | null>(null);
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const load = async (date = selectedDate) => { setError(null); try { const query = date ? `?selected_date=${encodeURIComponent(date)}` : ''; const [p, m] = await Promise.all([fetch(`/api/projects${query}`, { cache: 'no-store' }), fetch('/api/projects/team-members', { cache: 'no-store' })]); if (!p.ok || !m.ok) throw new Error('Projects data is unavailable'); const pd = await p.json(), md = await m.json(); setAvailableDates(pd.available_dates || []); setCandidates((pd.candidates || []).filter((x: Candidate) => x.status === 'pending_confirmation')); setProjects(pd.projects || []); setMembers(md.members || []); } catch (e) { setError(e instanceof Error ? e.message : 'Could not load projects'); } };
+  useEffect(() => { load(''); }, []);
+  const handleDateChange = async (date: string) => {
+    setSelectedDate(date);
+    await load(date);
   };
-
-  const noteByName = useMemo(() => {
-    const map = new Map<string, ProjectNote>();
-    for (const n of notes ?? []) map.set(n.name.toLowerCase(), n);
-    return map;
-  }, [notes]);
-
-  // Fields are editable even before a note exists for a live-detected project —
-  // the note is only created in storage on first edit, not just because Asana
-  // happened to return the project this load.
-  const updateNote = (name: string, patch: Partial<ProjectNote>) => {
-    if (!notes) return;
-    const existing = noteByName.get(name.toLowerCase());
-    if (existing) {
-      persist(notes.map((n) => (n.id === existing.id ? { ...n, ...patch, updatedAt: new Date().toISOString() } : n)));
-    } else {
-      persist([...notes, { ...createProjectNote(name), ...patch }]);
+  const viewTranscript = async (candidate: Candidate) => {
+    setTranscriptLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/projects/candidates/${encodeURIComponent(candidate.id)}/transcript`, { cache: 'no-store' });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || payload.error || 'Transcript unavailable');
+      setTranscript(payload);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Transcript unavailable');
+    } finally {
+      setTranscriptLoading(false);
     }
   };
-
-  const clearNote = (name: string) => {
-    if (!notes) return;
-    const existing = noteByName.get(name.toLowerCase());
-    if (!existing) return;
-    persist(notes.filter((n) => n.id !== existing.id));
-  };
-
-  const addManualProject = (name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed || !notes) return;
-    if (notes.some((n) => n.name.toLowerCase() === trimmed.toLowerCase())) return;
-    persist([...notes, createProjectNote(trimmed)]);
-    setNewProjectName('');
-  };
-
-  const removeManualProject = (id: string) => {
-    if (!notes) return;
-    persist(notes.filter((n) => n.id !== id));
-  };
-
-  const toggleExpanded = (name: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
-
-  // Manual notes for names that never showed up among the live Asana projects —
-  // e.g. non-Asana initiatives, or projects outside Hermes' recent-task window.
-  const manualOnlyNotes = useMemo(() => {
-    if (!notes) return [];
-    const liveNames = new Set(projects.map((p) => p.name.toLowerCase()));
-    return notes.filter((n) => !liveNames.has(n.name.toLowerCase()));
-  }, [notes, projects]);
-
-  if (!notes) {
-    return <div className="text-text-muted text-sm">Loading project tracking…</div>;
-  }
-
-  return (
-    <div className="flex flex-col gap-6 animate-fade-in-up">
-      <div className="glass-card rounded-2xl p-6 shadow-sm flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <FolderKanban className="w-5 h-5 text-gold" />
-          <h2 className="text-sm font-semibold text-gold tracking-wide uppercase">Project Tracking</h2>
-        </div>
-        <p className="text-xs text-text-muted leading-relaxed">
-          Auto-populated from Asana — completion, overdue tasks and owner are live. Click a card to expand
-          overdue tasks and add your own status notes.
-        </p>
-        <p className="text-[10px] text-text-muted/80 italic">
-          Confirmed with Hermes: task data reflects the most recent 100 tasks synced from Asana (the API&apos;s
-          default page size) — a large project&apos;s completion % may read lower than reality until pagination is added.
-        </p>
-      </div>
-
-      {projects.length === 0 ? (
-        <p className="text-text-muted text-sm italic">No active Asana projects detected in the current task window.</p>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {projects.map((p) => {
-            const note = noteByName.get(p.name.toLowerCase());
-            const isOpen = expanded.has(p.name);
-            const status = note?.status ?? 'on_track';
-            const sentiment = note?.sentiment ?? 'neutral';
-            const SentimentIcon = SENTIMENT_ICONS[sentiment];
-            const latestDue = formatDate(p.latestDue);
-
-            return (
-              <div
-                key={p.name}
-                className="bg-bg-secondary border border-border-color rounded-2xl p-5 shadow-sm flex flex-col gap-3.5 gold-glow-hover"
-              >
-                <button
-                  onClick={() => toggleExpanded(p.name)}
-                  className="flex items-start justify-between gap-2 text-left cursor-pointer"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${liveStatusDot(p)}`} />
-                    <h3 className="font-semibold text-text-primary truncate">{p.name}</h3>
-                  </div>
-                  {isOpen ? (
-                    <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
-                  )}
-                </button>
-
-                <div className="flex items-center gap-3 text-xs">
-                  <div className="flex-1 h-1.5 bg-bg-card rounded-full overflow-hidden">
-                    <div className="h-full bg-gold rounded-full" style={{ width: `${p.completionPct}%` }} />
-                  </div>
-                  <span className="text-text-secondary w-10 text-right shrink-0 font-semibold">{p.completionPct}%</span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-muted">
-                  <span>{p.doneTasks}/{p.totalTasks} tasks done</span>
-                  {p.owner && <span>· Owner: {p.owner}</span>}
-                  {latestDue && <span>· Latest due: {latestDue}</span>}
-                </div>
-
-                {p.overdueTasks.length > 0 && (
-                  <span className="text-[10px] font-semibold text-red bg-red-500/10 border border-red-500/25 rounded-full px-2 py-0.5 w-fit">
-                    {p.overdueTasks.length} overdue task{p.overdueTasks.length === 1 ? '' : 's'}
-                  </span>
-                )}
-
-                {isOpen && (
-                  <div className="flex flex-col gap-3.5 pt-2 border-t border-border-color">
-                    {p.overdueTasks.length > 0 && (
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-text-muted font-semibold uppercase tracking-wide text-[10px]">
-                          Overdue tasks
-                        </span>
-                        {p.overdueTasks.map((t, idx) => (
-                          <div key={idx} className="flex items-center justify-between gap-2 text-xs bg-bg-card border border-border-color rounded-lg px-2.5 py-1.5">
-                            <span className="truncate text-text-primary">{t.name}</span>
-                            <div className="flex items-center gap-2 shrink-0 text-text-muted">
-                              <span>{t.assignee}</span>
-                              <span>{t.daysOverdue}d late</span>
-                              {t.permalink && (
-                                <a href={t.permalink} target="_blank" rel="noreferrer" className="text-gold hover:text-gold/80">
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-3 text-xs">
-                      <label className="flex flex-col gap-1">
-                        <span className="text-text-muted font-semibold uppercase tracking-wide text-[10px]">Status</span>
-                        <select
-                          value={status}
-                          onChange={(e) => updateNote(p.name, { status: e.target.value as ProjectStatus })}
-                          className={`bg-bg-card border border-border-color rounded-lg px-2 py-1.5 font-semibold cursor-pointer ${STATUS_STYLES[status].select}`}
-                        >
-                          {(Object.keys(STATUS_STYLES) as ProjectStatus[]).map((s) => (
-                            <option key={s} value={s}>
-                              {STATUS_STYLES[s].label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="flex flex-col gap-1">
-                        <span className="text-text-muted font-semibold uppercase tracking-wide text-[10px]">Team sentiment</span>
-                        <div className="flex items-center gap-1 bg-bg-card border border-border-color rounded-lg px-2 py-1.5">
-                          <SentimentIcon className="w-3.5 h-3.5 text-gold" />
-                          <select
-                            value={sentiment}
-                            onChange={(e) => updateNote(p.name, { sentiment: e.target.value as ProjectSentiment })}
-                            className="bg-transparent font-semibold cursor-pointer focus:outline-none"
-                          >
-                            <option value="positive">Positive</option>
-                            <option value="neutral">Neutral</option>
-                            <option value="negative">Negative</option>
-                          </select>
-                        </div>
-                      </label>
-                    </div>
-
-                    <label className="flex flex-col gap-1 text-xs">
-                      <span className="text-text-muted font-semibold uppercase tracking-wide text-[10px]">Headline</span>
-                      <input
-                        type="text"
-                        value={note?.headline ?? ''}
-                        onChange={(e) => updateNote(p.name, { headline: e.target.value })}
-                        placeholder="One-line summary of where this stands"
-                        className="px-2.5 py-1.5 bg-bg-card border border-border-color rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-gold/40"
-                      />
-                    </label>
-
-                    <label className="flex flex-col gap-1 text-xs">
-                      <span className="text-text-muted font-semibold uppercase tracking-wide text-[10px]">Next steps</span>
-                      <textarea
-                        value={note?.nextSteps ?? ''}
-                        onChange={(e) => updateNote(p.name, { nextSteps: e.target.value })}
-                        rows={2}
-                        placeholder="What happens next"
-                        className="px-2.5 py-1.5 bg-bg-card border border-border-color rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-gold/40 resize-none"
-                      />
-                    </label>
-
-                    <label className="flex flex-col gap-1 text-xs">
-                      <span className="text-text-muted font-semibold uppercase tracking-wide text-[10px]">Dependencies</span>
-                      <textarea
-                        value={note?.dependencies ?? ''}
-                        onChange={(e) => updateNote(p.name, { dependencies: e.target.value })}
-                        rows={2}
-                        placeholder="What this is blocked on or waiting for"
-                        className="px-2.5 py-1.5 bg-bg-card border border-border-color rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-gold/40 resize-none"
-                      />
-                    </label>
-
-                    {note && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-text-muted">
-                          Notes updated {formatDubaiDate(note.updatedAt)}
-                        </span>
-                        <button
-                          onClick={() => clearNote(p.name)}
-                          className="flex items-center gap-1 text-[10px] text-text-muted hover:text-red cursor-pointer"
-                        >
-                          <Trash2 className="w-3 h-3" /> Clear notes
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="bg-bg-secondary border border-border-color rounded-2xl p-6 shadow-sm flex flex-col gap-3">
-        <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-          Other tracked initiatives
-        </h3>
-        <p className="text-[11px] text-text-muted">
-          For work that isn&apos;t an Asana project — tracked manually, on this device only.
-        </p>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            addManualProject(newProjectName);
-          }}
-          className="flex gap-2"
-        >
-          <input
-            type="text"
-            placeholder="Add something to track…"
-            value={newProjectName}
-            onChange={(e) => setNewProjectName(e.target.value)}
-            className="flex-1 px-3 py-2 bg-bg-card border border-border-color rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-gold/40"
-          />
-          <button
-            type="submit"
-            className="flex items-center gap-1.5 px-3 py-2 bg-gold text-white hover:bg-gold/90 font-semibold rounded-lg text-xs transition cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add
-          </button>
-        </form>
-
-        {manualOnlyNotes.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
-            {manualOnlyNotes.map((n) => {
-              const SentimentIcon = SENTIMENT_ICONS[n.sentiment];
-              return (
-                <div
-                  key={n.id}
-                  className="bg-bg-card border border-border-color rounded-2xl p-5 flex flex-col gap-3.5"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_STYLES[n.status].dot}`} />
-                      <h3 className="font-semibold text-text-primary truncate">{n.name}</h3>
-                    </div>
-                    <button
-                      onClick={() => removeManualProject(n.id)}
-                      className="text-text-muted hover:text-red p-1 rounded-md hover:bg-bg-secondary cursor-pointer shrink-0"
-                      title="Stop tracking"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3 text-xs">
-                    <label className="flex flex-col gap-1">
-                      <span className="text-text-muted font-semibold uppercase tracking-wide text-[10px]">Status</span>
-                      <select
-                        value={n.status}
-                        onChange={(e) => updateNote(n.name, { status: e.target.value as ProjectStatus })}
-                        className={`bg-bg-secondary border border-border-color rounded-lg px-2 py-1.5 font-semibold cursor-pointer ${STATUS_STYLES[n.status].select}`}
-                      >
-                        {(Object.keys(STATUS_STYLES) as ProjectStatus[]).map((s) => (
-                          <option key={s} value={s}>
-                            {STATUS_STYLES[s].label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-text-muted font-semibold uppercase tracking-wide text-[10px]">Team sentiment</span>
-                      <div className="flex items-center gap-1 bg-bg-secondary border border-border-color rounded-lg px-2 py-1.5">
-                        <SentimentIcon className="w-3.5 h-3.5 text-gold" />
-                        <select
-                          value={n.sentiment}
-                          onChange={(e) => updateNote(n.name, { sentiment: e.target.value as ProjectSentiment })}
-                          className="bg-transparent font-semibold cursor-pointer focus:outline-none"
-                        >
-                          <option value="positive">Positive</option>
-                          <option value="neutral">Neutral</option>
-                          <option value="negative">Negative</option>
-                        </select>
-                      </div>
-                    </label>
-                  </div>
-
-                  <label className="flex flex-col gap-1 text-xs">
-                    <span className="text-text-muted font-semibold uppercase tracking-wide text-[10px]">Headline</span>
-                    <input
-                      type="text"
-                      value={n.headline}
-                      onChange={(e) => updateNote(n.name, { headline: e.target.value })}
-                      placeholder="One-line summary of where this stands"
-                      className="px-2.5 py-1.5 bg-bg-secondary border border-border-color rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-gold/40"
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1 text-xs">
-                    <span className="text-text-muted font-semibold uppercase tracking-wide text-[10px]">Next steps</span>
-                    <textarea
-                      value={n.nextSteps}
-                      onChange={(e) => updateNote(n.name, { nextSteps: e.target.value })}
-                      rows={2}
-                      placeholder="What happens next"
-                      className="px-2.5 py-1.5 bg-bg-secondary border border-border-color rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-gold/40 resize-none"
-                    />
-                  </label>
-
-                  <span className="text-[10px] text-text-muted">
-                    Updated {formatDubaiDate(n.updatedAt)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  const act = async (url: string, options?: RequestInit) => { setBusy(true); setError(null); try { const r = await fetch(url, options); if (!r.ok) throw new Error((await r.json().catch(() => null))?.detail || 'Project action failed'); await load(selectedDate); } catch (e) { setError(e instanceof Error ? e.message : 'Project action failed'); } finally { setBusy(false); } };
+  const confirm = async () => { if (!confirming || !Object.values(selected).some(Boolean)) { setError('Select at least one authenticated team member.'); return; } await act(`/api/projects/candidates/${confirming.id}/confirm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ member_ids: Object.keys(selected).filter(k => selected[k]), notify }) }); setConfirming(null); setSelected({}); setNotify(false); };
+  const remove = async () => { if (!removing || removalName !== removing.name) { setError('Type the exact project name to confirm deletion.'); return; } await act(`/api/projects?project_id=${encodeURIComponent(removing.id)}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmation_name: removalName }) }); setRemoving(null); setRemovalName(''); };
+  return <div className="flex flex-col gap-5">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-xl font-bold text-text-primary flex items-center gap-2"><FolderKanban className="w-5 h-5 text-gold" /> Projects</h1><p className="text-xs text-text-muted mt-1">Evidence-backed project detection and tracking. Nothing is created without your confirmation.</p></div><div className="flex items-center gap-2"><label className="flex items-center gap-2 text-xs text-text-muted">Meeting date<select value={selectedDate} onChange={(e) => handleDateChange(e.target.value)} className="rounded-lg border border-border-color bg-bg-secondary px-2.5 py-2 text-xs text-text-primary"><option value="">All dates</option>{availableDates.map((date) => <option key={date} value={date}>{formatDate(date)}</option>)}</select></label><button onClick={() => load()} className="rounded-lg border border-border-color p-2 text-text-secondary hover:text-gold" aria-label="Refresh projects"><RefreshCw className="w-4 h-4" /></button></div></div>
+    {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red">{error}</div>}
+    <section className={card}><h2 className="text-sm font-semibold uppercase tracking-wide text-gold">Active Projects <span className="text-text-muted normal-case">({projects.length})</span></h2><div className="mt-4 grid gap-3">{projects.length === 0 ? <p className="text-sm text-text-muted">No confirmed projects yet.</p> : projects.map(p => <article key={p.id} className="rounded-xl border border-border-color bg-bg-card p-4"><div className="flex justify-between"><div><h3 className="font-semibold text-text-primary">{p.name}</h3><p className="text-xs text-text-muted">{p.company} · {p.team_members?.length || 0} team members</p></div><div className="flex items-start gap-3"><span className="text-xs font-semibold text-text-secondary">{p.status}</span><button type="button" disabled={busy} onClick={() => { setRemoving(p); setRemovalName(''); }} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red hover:bg-red-50"><Trash2 className="h-3 w-3" />Remove</button></div></div><div className="mt-3 h-2 rounded-full bg-bg-secondary"><div className="h-2 rounded-full bg-gold" style={{ width: `${p.progress || 0}%` }} /></div><p className="mt-2 text-xs text-text-muted">{p.progress || 0}% · Last update {p.last_update ? new Date(p.last_update).toLocaleString() : 'none'}</p>{p.blockers?.length ? <p className="mt-2 text-xs text-red"><AlertTriangle className="inline w-3 h-3 mr-1" />{p.blockers[0]}</p> : null}</article>)}</div></section>
+    <section className={card}><h2 className="text-sm font-semibold uppercase tracking-wide text-gold">Possible Projects <span className="text-text-muted normal-case">({candidates.length})</span></h2><div className="mt-4 grid gap-3">{candidates.length === 0 ? <p className="text-sm text-text-muted">No new project candidates detected from the available transcripts.</p> : candidates.map(c => <article key={c.id} className="rounded-xl border border-border-color bg-bg-card p-4"><div className="flex justify-between gap-3"><div><h3 className="font-semibold text-text-primary">{c.name}</h3><p className="text-xs text-text-muted mt-1">{c.source.meeting_title || 'Meeting transcript'} · {c.source.meeting_date || 'Date unknown'} · {c.company}</p></div><span className="text-xs font-semibold text-gold">{Math.round(c.confidence * 100)}% confidence</span></div><p className="text-sm text-text-secondary mt-3">{c.description}</p><p className="text-xs text-text-muted mt-2"><b>Why:</b> {c.why}</p><p className="text-xs text-text-muted mt-2"><b>People:</b> {c.people.join(', ') || 'None captured'} {c.deadline && <> · <b>Deadline:</b> {c.deadline}</>}</p><div className="mt-4 flex flex-wrap gap-2"><button disabled={transcriptLoading} onClick={() => viewTranscript(c)} className="rounded-lg border border-border-color px-3 py-2 text-xs font-semibold text-text-secondary hover:text-gold">{transcriptLoading ? 'Loading transcript…' : 'View Meeting Transcript'}</button><button disabled={busy} onClick={() => setConfirming(c)} className="rounded-lg bg-gold px-3 py-2 text-xs font-semibold text-white"><Check className="inline w-3 h-3 mr-1" />Confirm Project</button><button disabled={busy} onClick={() => act(`/api/projects/candidates/${c.id}/dismiss`, { method: 'POST' })} className="rounded-lg border border-border-color px-3 py-2 text-xs font-semibold text-text-secondary"><X className="inline w-3 h-3 mr-1" />Dismiss</button></div></article>)}</div></section>
+    {transcript && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="transcript-title"><div className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl border border-border-color bg-bg-primary shadow-2xl"><div className="flex items-start justify-between border-b border-border-color p-5"><div><h2 id="transcript-title" className="text-lg font-bold text-text-primary">{transcript.title}</h2><p className="mt-1 text-xs text-text-muted">{transcript.date || 'Date unknown'} · {transcript.path || 'Source transcript'}</p></div><button onClick={() => setTranscript(null)} className="rounded-lg border border-border-color px-3 py-2 text-sm text-text-secondary hover:text-gold" aria-label="Close transcript">Close</button></div><pre className="overflow-y-auto whitespace-pre-wrap p-5 text-sm leading-6 text-text-secondary">{transcript.content}</pre></div></div>}
+    {removing && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true"><div className={`${card} w-full max-w-lg`}><h2 className="text-lg font-bold text-text-primary">Remove project?</h2><p className="mt-2 text-sm text-text-secondary">This permanently removes the active project. Type the exact project name to confirm:</p><p className="mt-3 rounded-lg bg-bg-card p-3 text-sm font-semibold text-text-primary">{removing.name}</p><input autoFocus value={removalName} onChange={e => setRemovalName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') remove(); }} placeholder="Type project name" className="mt-3 w-full rounded-lg border border-border-color bg-bg-primary px-3 py-2 text-sm text-text-primary" /><div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => { setRemoving(null); setRemovalName(''); }} className="rounded-lg border border-border-color px-3 py-2 text-sm">Cancel</button><button type="button" disabled={busy || removalName !== removing.name} onClick={remove} className="rounded-lg bg-red px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? 'Removing…' : 'Remove Project'}</button></div></div></div>}
+    {confirming && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"><div className={`${card} w-full max-w-lg`}><h2 className="text-lg font-bold text-text-primary">Select Project Team</h2><p className="text-sm text-text-secondary mt-1">Only authenticated team members are available.</p><div className="mt-4 max-h-64 overflow-y-auto space-y-2">{members.map(m => <label key={m.id} className="flex items-center gap-3 rounded-lg border border-border-color p-3"><input type="checkbox" checked={!!selected[m.id]} onChange={e => setSelected(s => ({ ...s, [m.id]: e.target.checked }))} /><span className="text-sm text-text-primary">{m.name}</span><span className="ml-auto text-xs text-text-muted">{m.role}</span></label>)}</div><label className="mt-4 flex items-center gap-2 text-sm text-text-secondary"><input type="checkbox" checked={notify} onChange={e => setNotify(e.target.checked)} /><Mail className="w-4 h-4 text-gold" />Inform them through Email</label>{notify && <p className="mt-2 text-xs text-text-muted">Hermes will send one generated email only to selected members with authenticated email addresses.</p>}<div className="mt-5 flex justify-end gap-2"><button onClick={() => setConfirming(null)} className="rounded-lg border border-border-color px-3 py-2 text-sm">Cancel</button><button disabled={busy} onClick={confirm} className="rounded-lg bg-gold px-3 py-2 text-sm font-semibold text-white">{busy ? 'Creating…' : 'Create Project'}</button></div></div></div>}
+  </div>;
 }

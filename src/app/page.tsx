@@ -203,7 +203,7 @@ export default function DashboardPage() {
       case 'flowly':
         return <FlowlyOS data={data.flowly} />;
       case 'projects':
-        return <Projects projects={data.projects} />;
+        return <Projects/>;
       case 'decisions':
         return <DecisionLog data={data.decisions} />;
       case 'meetings':

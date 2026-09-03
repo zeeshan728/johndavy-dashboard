@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Sans, Cormorant_Garamond, Alex_Brush } from "next/font/google";
+import { DM_Sans, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 
 const jakarta = DM_Sans({
@@ -10,12 +10,6 @@ const jakarta = DM_Sans({
 const lora = Cormorant_Garamond({
   variable: "--font-lora",
   weight: ["500", "600", "700"],
-  subsets: ["latin"],
-});
-
-const alexBrush = Alex_Brush({
-  variable: "--font-brush-loaded",
-  weight: "400",
   subsets: ["latin"],
 });
 
@@ -32,19 +26,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      suppressHydrationWarning
-      className={`${jakarta.variable} ${lora.variable} ${alexBrush.variable} h-full antialiased`}
+      className={`${jakarta.variable} ${lora.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <script
-          // Blocking, runs before first paint — avoids a flash of the wrong theme.
-          // Light is the default; only an explicit "dark" in localStorage flips it.
-          dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem('theme')==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}`,
-          }}
-        />
-        {children}
-      </body>
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

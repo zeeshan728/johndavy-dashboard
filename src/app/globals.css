@@ -3,71 +3,80 @@
 :root {
   color-scheme: light;
 
-  /* Light theme - test*/
-  --bg-primary: #f7f4ee;
-  --bg-secondary: #ffffff;
-  --bg-card: #f7f3ea;
-  --bg-card-hover: #f0e9dc;
-  --border-color: #e6ddcc;
+  /* Futuristic executive light theme */
+  --background: #f4f8fc;
+  --foreground: #10233f;
 
-  --accent-gold: #a3792f;
-  --accent-gold-rgb: 163 121 47;
-  --accent-green: #157a45;
-  --accent-green-rgb: 21 122 69;
-  --accent-red: #bd2328;
-  --accent-red-rgb: 189 35 40;
-  --accent-amber: #b45309;
-  --accent-amber-rgb: 180 83 9;
-  --accent-blue: #2563eb;
-  --accent-blue-rgb: 37 99 235;
-  --accent-teal: #0d9488;
-  --accent-teal-rgb: 13 148 136;
+  --bg-primary: #f4f8fc;
+  --bg-secondary: rgba(255, 255, 255, 0.86);
+  --bg-card: #f8fbff;
+  --bg-card-hover: #eef6ff;
+  --border-color: #d9e6f2;
 
-  --text-primary: #1c1917;
-  --text-secondary: #6b6156;
-  --text-muted: #9a9082;
+  /* Keep the existing utility names stable while moving the visual language to blue/cyan. */
+  --accent-gold: #1677ff;
+  --accent-green: #12805c;
+  --accent-red: #d63b55;
+  --accent-amber: #b56b00;
+  --accent-blue: #1677ff;
+  --accent-teal: #0797a8;
+  --accent-cyan: #08b6d4;
 
-  --glass-bg: rgba(255, 255, 255, 0.6);
-  --glass-border: rgba(28, 25, 23, 0.08);
-  --shadow-color: 28 25 23;
+  --text-primary: #10233f;
+  --text-secondary: #52657d;
+  --text-muted: #8294aa;
 
-  --background: var(--bg-primary);
-  --foreground: var(--text-primary);
+  --shadow-soft: 0 8px 28px rgba(31, 77, 122, 0.07);
+  --shadow-lifted: 0 16px 38px rgba(31, 77, 122, 0.12);
+  --focus-ring: rgba(22, 119, 255, 0.35);
 }
 
-[data-theme="dark"] {
+html[data-theme="dark"] {
+
   color-scheme: dark;
+  --background: #071426;
+  --foreground: #f4f9ff;
+  --bg-primary: #071426;
+  --bg-secondary: rgba(11, 30, 54, 0.92);
+  --bg-card: #0d223d;
+  --bg-card-hover: #123253;
+  --border-color: #234664;
+  --accent-gold: #52b8ff;
+  --accent-green: #42c995;
+  --accent-red: #ff7185;
+  --accent-amber: #f4b95f;
+  --accent-blue: #52b8ff;
+  --accent-teal: #3bd5c4;
+  --accent-cyan: #42e3f2;
+  --text-primary: #f4f9ff;
+  --text-secondary: #b5c9dc;
+  --text-muted: #7f9ab4;
+  --shadow-soft: 0 8px 28px rgba(0, 0, 0, 0.24);
+  --shadow-lifted: 0 16px 38px rgba(0, 0, 0, 0.36);
+  --focus-ring: rgba(82, 184, 255, 0.55);
+}
 
-  /* Dark theme — near-black charcoal, frosted glass surfaces, brighter champagne gold */
-  --bg-primary: #0b0a09;
-  --bg-secondary: #161310;
-  --bg-card: #1c1815;
-  --bg-card-hover: #262019;
-  --border-color: #2e2822;
+html[data-theme="dark"] body::before {
+  background-image:
+    linear-gradient(rgba(98, 190, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(98, 190, 255, 0.055) 1px, transparent 1px);
+}
 
-  --accent-gold: #d8af6a;
-  --accent-gold-rgb: 216 175 106;
-  --accent-green: #34d399;
-  --accent-green-rgb: 52 211 153;
-  --accent-red: #f87171;
-  --accent-red-rgb: 248 113 113;
-  --accent-amber: #fbbf24;
-  --accent-amber-rgb: 251 191 36;
-  --accent-blue: #60a5fa;
-  --accent-blue-rgb: 96 165 250;
-  --accent-teal: #2dd4bf;
-  --accent-teal-rgb: 45 212 191;
+html[data-theme="dark"] body::after {
+  background: radial-gradient(
+    circle,
+    rgba(66, 227, 242, 0.16),
+    rgba(66, 227, 242, 0) 68%
+  );
+}
 
-  --text-primary: #f3ede2;
-  --text-secondary: #b4a99a;
-  --text-muted: #766c60;
-
-  --glass-bg: rgba(28, 24, 21, 0.55);
-  --glass-border: rgba(243, 237, 226, 0.08);
-  --shadow-color: 0 0 0;
-
-  --background: var(--bg-primary);
-  --foreground: var(--text-primary);
+html[data-theme="dark"] .glass-surface {
+  background: linear-gradient(
+    135deg,
+    rgba(15, 39, 68, 0.92),
+    rgba(8, 25, 46, 0.8)
+  );
+  border-color: rgba(83, 145, 190, 0.42);
 }
 
 @theme {
@@ -83,6 +92,7 @@
   --color-amber: var(--accent-amber);
   --color-blue: var(--accent-blue);
   --color-teal: var(--accent-teal);
+  --color-cyan: var(--accent-cyan);
 
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
@@ -90,57 +100,100 @@
 
   --font-sans: var(--font-jakarta), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --font-serif: var(--font-lora), Georgia, 'Times New Roman', serif;
-  --font-brush: var(--font-brush-loaded), cursive;
+  /* Compatibility token: brand typography is now clean sans, not handwritten. */
+  --font-brush: var(--font-jakarta), system-ui, sans-serif;
+}
+
+* {
+  border-color: var(--border-color);
+}
+
+html {
+  background: var(--bg-primary);
 }
 
 body {
   overflow-x: hidden;
+  position: relative;
+  isolation: isolate;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Ambient gradient mesh — a quiet wash of color behind the app shell, more present in dark */
+/* Quiet ambient depth: visible enough to feel alive, restrained enough for executive use. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(71, 132, 190, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(71, 132, 190, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  width: 38rem;
+  height: 38rem;
+  top: -18rem;
+  right: -12rem;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.13), rgba(56, 189, 248, 0) 68%);
+  filter: blur(4px);
+  animation: ambient-drift 18s ease-in-out infinite alternate;
+}
+
+/* Used by the application shell. Kept as a separate layer so content stays readable. */
 .ambient-mesh {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image:
-    radial-gradient(ellipse 900px 600px at 15% -10%, rgb(var(--accent-gold-rgb) / 0.10), transparent 60%),
-    radial-gradient(ellipse 700px 500px at 100% 10%, rgb(var(--accent-blue-rgb) / 0.06), transparent 55%),
-    radial-gradient(ellipse 800px 700px at 50% 120%, rgb(var(--accent-teal-rgb) / 0.05), transparent 55%);
+  opacity: 0.55;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(22, 119, 255, 0.08), transparent 24%),
+    radial-gradient(circle at 82% 62%, rgba(8, 182, 212, 0.06), transparent 25%);
+  animation: ambient-drift 24s ease-in-out infinite alternate-reverse;
 }
 
-[data-theme="dark"] .ambient-mesh {
-  background-image:
-    radial-gradient(ellipse 900px 600px at 15% -10%, rgb(var(--accent-gold-rgb) / 0.14), transparent 60%),
-    radial-gradient(ellipse 700px 500px at 100% 10%, rgb(var(--accent-blue-rgb) / 0.10), transparent 55%),
-    radial-gradient(ellipse 800px 700px at 50% 120%, rgb(var(--accent-teal-rgb) / 0.08), transparent 55%);
+/* Shared surface utilities */
+.glass-surface {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(247, 251, 255, 0.74));
+  border: 1px solid rgba(174, 202, 226, 0.62);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(16px);
 }
 
-/* Frosted glass card — used for hero/flagship surfaces, not every card (perf + restraint) */
-.glass-card {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-}
-
-/* Custom UI utilities */
 .gold-glow {
-  box-shadow: 0 4px 24px rgb(var(--shadow-color) / 0.06);
+  box-shadow: var(--shadow-soft);
 }
 
 .gold-glow-hover {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, background-color 180ms ease;
 }
 
 .gold-glow-hover:hover {
-  border-color: rgb(var(--accent-gold-rgb) / 0.4);
-  box-shadow: 0 12px 32px rgb(var(--shadow-color) / 0.10), 0 0 0 1px rgb(var(--accent-gold-rgb) / 0.06);
+  border-color: rgba(22, 119, 255, 0.32);
+  box-shadow: var(--shadow-lifted);
   transform: translateY(-2px);
+}
+
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -153,48 +206,46 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: #bfd2e4;
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: #91abc3;
 }
 
-/* Mount animations — a quiet stagger for bento grids and lists */
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes ambient-drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-18px, 14px, 0) scale(1.04); }
 }
 
-.animate-fade-in-up {
-  animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(var(--stagger, 0) * 60ms);
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Skeleton shimmer */
-@keyframes shimmer {
-  from {
-    background-position: 150% 0;
-  }
+.animate-fadeIn {
+  animation: fade-in 220ms ease-out both;
+}
 
-  to {
-    background-position: -50% 0;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-.animate-shimmer {
-  background-image: linear-gradient(100deg,
-      var(--bg-card) 40%,
-      var(--bg-card-hover) 50%,
-      var(--bg-card) 60%);
-  background-size: 250% 100%;
-  animation: shimmer 2.2s ease-in-out infinite;
+@media (max-width: 640px) {
+  body::before { background-size: 32px 32px; }
+  body::after { width: 24rem; height: 24rem; }
+}
+
+@media print {
+  body::before,
+  body::after,
+  .ambient-mesh { display: none; }
 }

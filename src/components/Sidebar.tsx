@@ -40,7 +40,8 @@ export type SectionId =
   | 'logistics'
   | 'legal'
   | 'finance'
-  | 'connections';
+  | 'connections'
+  | 'relationships';
 
 export const SECTIONS: { id: SectionId; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -50,6 +51,7 @@ export const SECTIONS: { id: SectionId; label: string; icon: React.ElementType }
     label: 'Connections / Health',
     icon: Activity,
   },
+  { id: 'relationships', label: 'Relationships', icon: Users },
   { id: 'priorities', label: 'Strategic Priorities', icon: Target },
   { id: 'approval-outbox', label: 'Proposed Actions', icon: Inbox },
   { id: 'revenue', label: 'Revenue Pulse', icon: DollarSign },

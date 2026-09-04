@@ -436,6 +436,124 @@ export function getBriefing() {
   return fetchHermes<HermesBriefing>('/api/briefing');
 }
 
+export interface HermesRelationshipPerson {
+  id: string;
+  name: string;
+  role?: string;
+  company?: string;
+  relationshipStrength: number;
+  importance: number;
+  trend:
+    | 'increasing'
+    | 'stable'
+    | 'decreasing'
+    | 'dormant'
+    | 'unknown';
+  interactionCount: number;
+  meetingCount: number;
+  emailCount: number;
+  taskCount: number;
+  lastInteraction?: HermesRelationshipInteraction | null;
+  nextInteraction?: HermesRelationshipInteraction | null;
+  activeProjects: string[];
+  openActions: { text: string; source?: string }[];
+  explanation: string;
+  confidence: 'high' | 'medium' | 'low';
+  interactions?: HermesRelationshipInteraction[];
+}
+
+export interface HermesRelationshipInteraction {
+  id: string;
+  type: string;
+  date: string;
+  title?: string;
+  summary?: string;
+  source: string;
+  sourceRef?: string;
+  topics?: string[];
+  decisions?: string[];
+  actionItems?: string[];
+}
+
+export interface HermesRelationships {
+  overview: {
+    people: number;
+    closeCircle: number;
+    needsAttention: number;
+    upcomingMeetings: number;
+    recentInteractions: number;
+  };
+  closeCircle: HermesRelationshipPerson[];
+  mostInteracted: HermesRelationshipPerson[];
+  attention: {
+    personId: string;
+    title: string;
+    detail: string;
+    why: string;
+    evidence: unknown[];
+  }[];
+  team: HermesRelationshipPerson[];
+  companies: {
+    name: string;
+    people: string[];
+    count: number;
+  }[];
+  upcomingMeetings: HermesRelationshipInteraction[];
+  sources: {
+    available: string[];
+    unavailable: string[];
+    fetchedAt?: string;
+  };
+  period: string;
+}
+
+export function getRelationships(
+  params: {
+    period?: string;
+    q?: string;
+    company?: string;
+    filter?: string;
+  } = {},
+) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      query.set(key, value);
+    }
+  });
+
+  return fetchHermes<HermesRelationships>(
+    `/api/relationships${
+      query.toString() ? `?${query.toString()}` : ''
+    }`,
+  );
+}
+
+export function getRelationshipPerson(
+  id: string,
+  period = '12m',
+) {
+  return fetchHermes<HermesRelationshipPerson>(
+    `/api/relationships/${encodeURIComponent(id)}?period=${period}`,
+  );
+}
+
+export function searchRelationships(
+  q: string,
+  period = '30d',
+) {
+  return fetchHermes<{
+    query: string;
+    results: HermesRelationshipPerson[];
+  }>(
+    `/api/relationships/search?q=${encodeURIComponent(
+      q,
+    )}&period=${period}`,
+  );
+}
+
+
 // Hermes' /api/ask now returns its fields flat (no "answer" wrapper) since it
 // implements real LLM synthesis — confirmed live 2026-07-21. `response` is the
 // actual synthesized answer; the rest is the retrieval context it was grounded in.

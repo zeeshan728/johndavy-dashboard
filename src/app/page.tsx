@@ -23,6 +23,7 @@ import Finance from '@/components/Finance';
 import Logistics from '@/components/Logistics';
 import ApprovalOutbox from '@/components/ApprovalOutbox';
 import Connections from '@/components/Connections';
+import Relationships from '@/components/Relationships';
 
 
 export default function DashboardPage() {
@@ -190,6 +191,8 @@ export default function DashboardPage() {
         return <MorningBrief data={data} onRefresh={handleRefresh} isRefreshing={isRefreshing} />;
       case 'connections':
         return <Connections />;
+      case 'relationships':
+        return <Relationships />;
       case 'priorities':
         return <StrategicPriorities priorities={data.strategic.priorities} dataSource={data.strategic.dataSource} />;
       case 'approval-outbox':

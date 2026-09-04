@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   CheckCircle2,
@@ -199,6 +199,39 @@ function formatDate(value?: string | null): string {
   });
 }
 
+function buildConnectionPath(
+  angle: number,
+  hovered?: { x: number; y: number } | null,
+) {
+  const startX = 560;
+  const startY = 280;
+  const endX = startX + Math.cos(angle) * 455;
+  const endY = startY + Math.sin(angle) * 220;
+
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const length = Math.hypot(dx, dy);
+
+  // Perpendicular vector used to create one smooth bend.
+  const normalX = -dy / length;
+  const normalY = dx / length;
+
+  const midpointX = startX + dx * 0.5;
+  const midpointY = startY + dy * 0.5;
+
+  // The cursor pulls the middle of the line toward itself.
+  const controlX = hovered
+    ? midpointX + (hovered.x - midpointX) * 0.34
+    : midpointX + normalX * 20 * Math.sin(angle * 2.1);
+
+  const controlY = hovered
+    ? midpointY + (hovered.y - midpointY) * 0.34
+    : midpointY + normalY * 20 * Math.sin(angle * 2.1);
+
+  // One smooth quadratic curve from Francis to the connection node.
+  return `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
+}
+
 export default function Connections() {
   const [health, setHealth] = useState<Health | null>(null);
   const [selected, setSelected] = useState<Connection | null>(null);
@@ -206,6 +239,15 @@ export default function Connections() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const graphSvgRef = useRef<SVGSVGElement>(null);
+
+  const [hoveredLine, setHoveredLine] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
 
   async function loadHealth() {
     setError(null);
@@ -490,7 +532,7 @@ export default function Connections() {
             <Activity className="h-4 w-4 text-blue-600" />
 
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-wider text-blue-950">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-text-primary">
                 Connection graph
               </h2>
 
@@ -517,36 +559,99 @@ export default function Connections() {
           <div className="connection-graph-grid absolute inset-0" />
 
           <svg
+            ref={graphSvgRef}
             className="absolute inset-0 h-full w-full"
             viewBox="0 0 1120 560"
             preserveAspectRatio="none"
             role="img"
             aria-label="Francis connection graph"
+            onMouseMove={(event) => {
+              const svg = graphSvgRef.current;
+              const rect = svg?.getBoundingClientRect();
+
+              if (!svg || !rect) return;
+
+              const x = ((event.clientX - rect.left) / rect.width) * 1120;
+              const y = ((event.clientY - rect.top) / rect.height) * 560;
+
+              // Distance in SVG units at which a line reacts.
+              const proximity = 34;
+
+              const candidates: {
+                id: string;
+                distance: number;
+              }[] = [];
+
+              svg
+                .querySelectorAll<SVGPathElement>('.connection-graph-line')
+                .forEach((path) => {
+                  const length = path.getTotalLength();
+
+                  // Sample each line to find its closest point to the cursor.
+                  for (let step = 0; step <= 32; step += 1) {
+                    const point = path.getPointAtLength(
+                      (length * step) / 32,
+                    );
+
+                    const distance = Math.hypot(
+                      point.x - x,
+                      point.y - y,
+                    );
+
+                    if (distance <= proximity) {
+                      candidates.push({
+                        id: path.dataset.connectionId || '',
+                        distance,
+                      });
+                    }
+                  }
+                });
+
+              const nearest = candidates.sort(
+                (left, right) => left.distance - right.distance,
+              )[0];
+
+              setHoveredLine(
+                nearest
+                  ? {
+                      id: nearest.id,
+                      x,
+                      y,
+                    }
+                  : null,
+              );
+            }}
+            onMouseLeave={() => setHoveredLine(null)}
+
           >
-            {nodes.map((connection, index) => {
-              const angle =
-                (index / Math.max(nodes.length, 1)) * Math.PI * 2 -
+
+            {nodes.map((connection, i) => {
+              const a =
+                (i / Math.max(nodes.length, 1)) * Math.PI * 2 -
                 Math.PI / 2;
 
               const failed = connection.status === 'failed';
+              const isHovered = hoveredLine?.id === connection.id;
 
               return (
-                <line
+                <path
                   key={`line-${connection.id}`}
+                  data-connection-id={connection.id}
                   className={`connection-graph-line ${
                     failed
                       ? 'connection-graph-line-failed'
                       : 'connection-graph-line-active'
-                  }`}
-                  x1="560"
-                  y1="280"
-                  x2={560 + Math.cos(angle) * 455}
-                  y2={280 + Math.sin(angle) * 220}
+                  } ${isHovered ? 'connection-graph-line-hovered' : ''}`}
+                  d={buildConnectionPath(
+                    a,
+                    isHovered ? hoveredLine : null,
+                  )}
                   stroke={failed ? '#f87171' : '#34d399'}
-                  strokeWidth={failed ? '3' : '4'}
+                  strokeWidth={failed ? '3' : '2.5'}
                 />
               );
             })}
+
           </svg>
 
           <div className="connection-center-pulse absolute left-1/2 top-1/2 z-10 flex h-32 w-32 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-blue-300 bg-blue-900 text-center text-xs font-bold tracking-[0.22em] text-blue-100 shadow-2xl shadow-blue-950/80">

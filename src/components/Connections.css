@@ -1,39 +1,74 @@
-.connection-graph {
-  isolation: isolate;
-}
-
 .connection-graph-line {
   fill: none;
   stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+  transition: d 420ms cubic-bezier(0.22, 1, 0.36, 1), stroke-width 180ms ease, filter 180ms ease, opacity 180ms ease;
+}
+
+.connection-graph-line-hovered {
+  stroke-width: 5 !important;
+  filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 10px currentColor);
+  opacity: 1;
 }
 
 .connection-graph-line-active {
+  /* Healthy links are a thin, single smooth bend. */
   stroke-dasharray: none;
-  filter: drop-shadow(0 0 5px rgb(52 211 153 / 0.65));
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 4px rgb(52 211 153 / 0.55));
 }
 
 .connection-graph-line-failed {
-  stroke-dasharray: 18 11 3 16;
+  stroke-dasharray: 16 10 3 14;
+  animation: connection-flow-failed 1.8s linear infinite;
   opacity: 0.9;
   filter: drop-shadow(0 0 5px rgb(248 113 113 / 0.6));
 }
 
 .connection-graph-grid {
   opacity: 0.38;
-  background-image: radial-gradient(
-    circle,
-    rgb(147 197 253 / 0.8) 1px,
-    transparent 1.5px
-  );
-  background-size: 28px 28px;
+  background-image: radial-gradient(circle, rgb(147 197 253 / 0.8) 1px, transparent 1.5px), linear-gradient(135deg, transparent 0 48%, rgb(96 165 250 / 0.16) 49% 50%, transparent 51%);
+  background-size: 28px 28px, 140px 140px;
+  animation: vector-drift 16s linear infinite;
 }
 
-/*
- * Nodes are intentionally static.
- * There is no twitching or movement animation.
- */
+@keyframes connection-flow-solid {
+  0%,
+  100% {
+    stroke-width: 4;
+    filter: drop-shadow(0 0 3px rgb(52 211 153 / 0.45));
+  }
+
+  50% {
+    stroke-width: 5.5;
+    filter: drop-shadow(0 0 10px rgb(52 211 153 / 0.95));
+  }
+}
+
+@keyframes connection-flow-failed {
+  from {
+    stroke-dashoffset: 0;
+  }
+
+  to {
+    stroke-dashoffset: -43;
+  }
+}
+
 .connection-graph-node {
-  transform-origin: center;
+  /* Keep the centering transform owned by Tailwind; animating transform here
+     would replace translate(-50%, -50%) and shift the nodes off their lines. */
+  animation: connection-node-breathe 3.4s ease-in-out infinite;
+}
+
+.connection-graph-node:nth-child(3n) {
+  animation-delay: -1s;
+}
+
+.connection-graph-node:nth-child(3n + 1) {
+  animation-delay: -2s;
 }
 
 .connection-status-pulse {
@@ -42,6 +77,21 @@
 
 .connection-center-pulse {
   animation: connection-center-pulse 3s ease-in-out infinite;
+}
+
+@keyframes connection-node-breathe {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+
+  50% {
+    filter: drop-shadow(0 0 7px rgb(189 35 40 / 0.18));
+  }
+}
+
+@keyframes vector-drift {
+  to { background-position: 56px 28px, 140px 140px; }
 }
 
 @keyframes connection-status-pulse {
@@ -61,21 +111,20 @@
 @keyframes connection-center-pulse {
   0%,
   100% {
-    box-shadow:
-      0 0 0 0 rgb(96 165 250 / 0.25),
-      0 8px 24px rgb(15 23 42 / 0.35);
+    box-shadow: 0 0 0 0 rgb(189 35 40 / 0.14), 0 8px 24px rgb(31 35 40 / 0.08);
   }
 
   50% {
-    box-shadow:
-      0 0 0 16px rgb(96 165 250 / 0),
-      0 8px 34px rgb(15 23 42 / 0.5);
+    box-shadow: 0 0 0 13px rgb(189 35 40 / 0), 0 8px 30px rgb(31 35 40 / 0.12);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .connection-graph-line,
+  .connection-graph-node,
   .connection-status-pulse,
-  .connection-center-pulse {
+  .connection-center-pulse,
+  .connection-graph-grid {
     animation: none;
   }
 }

@@ -459,8 +459,23 @@ export interface HermesRelationshipPerson {
   openActions: { text: string; source?: string }[];
   explanation: string;
   confidence: 'high' | 'medium' | 'low';
+  topicAlerts?: HermesRelationshipTopicAlert[];
   interactions?: HermesRelationshipInteraction[];
 }
+
+export interface HermesRelationshipTopicAlert {
+  topic: string;
+  title: string;
+  detail: string;
+  evidence: {
+    priorMeeting: string;
+    priorDate: string;
+    latestMeeting: string;
+    latestDate: string;
+    intent: string;
+  };
+}
+
 
 export interface HermesRelationshipInteraction {
   id: string;

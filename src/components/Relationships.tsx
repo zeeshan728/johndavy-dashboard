@@ -152,6 +152,31 @@ function PersonCard({
   );
 }
 
+function TopicAlert({
+  alert,
+}: {
+  alert: NonNullable<HermesRelationshipPerson['topicAlerts']>[number];
+}) {
+  return (
+    <div className="rounded-xl border border-red/40 bg-red/8 p-4">
+      <p className="text-sm font-bold text-red">
+        {alert.title}
+      </p>
+
+      <p className="mt-1 text-sm leading-relaxed text-text-primary">
+        {alert.detail}
+      </p>
+
+      <p className="mt-2 text-[11px] text-text-muted">
+        Evidence: {alert.evidence.priorMeeting}
+        {' → '}
+        latest meeting: {alert.evidence.latestMeeting}
+      </p>
+    </div>
+  );
+}
+
+
 function Detail({
   person,
   onClose,
@@ -212,6 +237,17 @@ function Detail({
             icon={<Mail className="h-3.5 w-3.5" />}
           />
         </div>
+
+        {person.topicAlerts?.length ? (
+          <div className="mt-5 space-y-3">
+            {person.topicAlerts.map((alert) => (
+              <TopicAlert
+                key={`${alert.topic}-${alert.evidence.latestDate}`}
+                alert={alert}
+              />
+            ))}
+          </div>
+        ) : null}
 
         <div className="mt-5 rounded-xl border border-border-color bg-bg-card p-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
